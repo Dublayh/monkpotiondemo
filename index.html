@@ -640,6 +640,10 @@
     <div class="phase-step">Battle</div>
   </div>
   <div class="main">
+    <div class="card" id="shop-monkey-panel">
+      <div class="card-title">🐵 Your Monkey</div>
+      <div id="shop-monkey-display" style="display:flex;gap:16px;flex-wrap:wrap"></div>
+    </div>
     <div class="card">
       <div class="card-title">🍌 Flasks <span class="badge">always available</span></div>
       <div class="shop-grid" id="flask-shop"></div>
@@ -919,7 +923,6 @@ const WORLD_1_MONKEYS = [
   { id: 'brute', name: 'Brute Monkey', icon: '🦍', desc: 'Slow but hits like a falling coconut.' }
 ];
 
-// Total stat pool: 12. HP first (8-10), ATK minimum 1, remainder random across ATK/DEF/SPD.
 function rollMonkeyStats() {
   const POOL = 14;
 
@@ -934,13 +937,12 @@ function rollMonkeyStats() {
   // Remaining points after minimums
   let remaining = POOL - hp - atk - spd;
 
-  // Weighted cuts:
-  // ATK gets more → weight < 1
-  // DEF neutral → weight = 1
-  // SPD gets less → weight > 1
-  const atkBonus = weightedRandom(remaining, 0.6); // favors higher
-  const defBonus = weightedRandom(remaining - atkBonus, 1.0); // neutral
-  const spdBonus = remaining - atkBonus - defBonus; // whatever is left
+  // ATK and DEF are neutral → uniform random
+  const atkBonus = Math.floor(Math.random() * (remaining + 1));
+  const defBonus = Math.floor(Math.random() * (remaining - atkBonus + 1));
+
+  // SPD gets whatever is left → naturally lowest
+  const spdBonus = remaining - atkBonus - defBonus;
 
   return {
     hp,
@@ -949,11 +951,6 @@ function rollMonkeyStats() {
     spd: spd + spdBonus
   };
 }
-
-function weightedRandom(max, weight) {
-  return Math.floor(Math.pow(Math.random(), weight) * (max + 1));
-}
-
 
 // ============================================================
 // GAME STATE
@@ -978,7 +975,8 @@ function initGame() {
         brewedPotions: [],
         battlePotions: [],
         selectedMonkeyIdx: 0,
-        cart: []
+        cart: [],
+        shopRoll: rollShop()
       },
       {
         name: 'Player 2',
@@ -988,7 +986,8 @@ function initGame() {
         brewedPotions: [],
         battlePotions: [],
         selectedMonkeyIdx: 0,
-        cart: []
+        cart: [],
+        shopRoll: rollShop()
       }
     ],
     battle: {
@@ -1028,6 +1027,11 @@ function makeMonkey(template, ownerIdx) {
 // SCREEN MANAGEMENT
 // ============================================================
 
+function rollShop() {
+  const keys = Object.keys(INGREDIENTS);
+  return [0,1,2].map(() => keys[Math.floor(Math.random() * keys.length)]);
+}
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -1053,6 +1057,26 @@ function renderShop() {
   document.getElementById('shop-bananas').textContent = p.bananas;
   document.getElementById('shop-level-display').textContent = `1-${G.level}`;
 
+  // Monkey panel
+  const monDisplay = document.getElementById('shop-monkey-display');
+  monDisplay.innerHTML = '';
+  p.monkeys.forEach(mon => {
+    monDisplay.innerHTML += `
+      <div style="display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;flex:1;min-width:180px">
+        <span style="font-size:36px">${mon.icon}</span>
+        <div style="flex:1">
+          <div style="font-family:Fredoka,sans-serif;font-size:15px;margin-bottom:6px">${mon.name} <span style="font-size:11px;color:var(--text2)">Lv${mon.level}</span></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <span style="font-size:12px;font-weight:700;color:var(--green)">❤️ ${mon.hp}/${mon.maxHp}</span>
+            <span style="font-size:12px;font-weight:700;color:var(--red)">⚔️ ${mon.atk} ATK</span>
+            <span style="font-size:12px;font-weight:700;color:var(--accent3)">🛡 ${mon.def} DEF</span>
+            <span style="font-size:12px;font-weight:700;color:var(--yellow)">💨 ${mon.spd} SPD</span>
+          </div>
+          ${mon.spells.length > 0 ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${mon.spells.map(s => `<span style="font-size:10px;background:var(--spell-bg);border:1px solid var(--spell-border);color:var(--spell);padding:2px 6px;border-radius:6px">${s.icon} ${s.name}</span>`).join('')}</div>` : ''}
+        </div>
+      </div>`;
+  });
+
   // Flasks
   const fs = document.getElementById('flask-shop');
   fs.innerHTML = '';
@@ -1068,31 +1092,43 @@ function renderShop() {
       </div>`;
   });
 
-  // Ingredients
+  // Ingredients — 3 randomly rolled slots, duplicates possible
   const is = document.getElementById('ingredient-shop');
   is.innerHTML = '';
-  Object.values(INGREDIENTS).forEach(ing => {
-    const inCart = p.cart.filter(c => c.id === ing.id).length;
+  p.shopRoll.forEach((ingId, slotIdx) => {
+    const ing = INGREDIENTS[ingId];
+    const inCart = p.cart.filter(c => c.id === ingId && c.slotIdx === slotIdx).length;
+    const alreadyInCart = inCart > 0;
     is.innerHTML += `
-      <div class="shop-item" onclick="addToCart('ingredient','${ing.id}')">
+      <div class="shop-item ${alreadyInCart ? 'selected' : ''}" onclick="addToCart('ingredient','${ingId}',${slotIdx})">
         <div class="shop-item-type type-ingredient">ingredient</div>
         <div class="shop-item-icon">${ing.icon}</div>
         <div class="shop-item-name">${ing.name}</div>
         <div class="shop-item-cost">${ing.cost}🍌</div>
         <div class="shop-item-desc">${ing.desc}</div>
-        ${inCart > 0 ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${inCart}</div>` : ''}
+        ${alreadyInCart ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</div>` : ''}
       </div>`;
   });
 
   updateCartDisplay();
 }
 
-function addToCart(type, id) {
+function addToCart(type, id, slotIdx) {
   const p = G.players[G.activePlayer];
   const item = type === 'flask' ? FLASKS[id] : INGREDIENTS[id];
   const cartTotal = p.cart.reduce((s,c) => s + c.cost, 0);
   if (cartTotal + item.cost > p.bananas) { flashMessage('Not enough 🍌!'); return; }
-  p.cart.push({ type, id, cost: item.cost });
+  if (type === 'ingredient') {
+    const alreadyInCart = p.cart.some(c => c.slotIdx === slotIdx);
+    if (alreadyInCart) {
+      p.cart = p.cart.filter(c => c.slotIdx !== slotIdx);
+      renderShop();
+      return;
+    }
+    p.cart.push({ type, id, cost: item.cost, slotIdx });
+  } else {
+    p.cart.push({ type, id, cost: item.cost });
+  }
   renderShop();
 }
 
@@ -1568,6 +1604,7 @@ function finishLoadout() {
   if (G.activePlayer === 0) {
     G.activePlayer = 1;
     G.players[1].cart = [];
+    G.players[1].shopRoll = rollShop();
     renderShop();
     flashMessage("P1 done! Now P2's turn to shop.");
     showScreen('screen-shop');
@@ -1990,6 +2027,8 @@ function continueAfterBattle() {
   } else {
     G.level++;
     G.activePlayer = 0;
+    G.players[0].shopRoll = rollShop();
+    G.players[1].shopRoll = rollShop();
     renderShop();
     showScreen('screen-shop');
   }

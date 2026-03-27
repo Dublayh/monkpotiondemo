@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Potion Monkey: World 1</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Nunito:wght@400;600;700&display=swap');
+
+  :root {
+    --bg: #1a1a2e;
+    --bg2: #16213e;
+    --bg3: #0f3460;
+    --card: #1e2a4a;
+    --card2: #243156;
+    --border: #2e4080;
+    --accent: #e94560;
+    --accent2: #f5a623;
+    --accent3: #4ecdc4;
+    --accent4: #a8e063;
+    --text: #eef2ff;
+    --text2: #9baacf;
+    --text3: #6070a0;
+    --spell: #c084fc;
+    --spell-bg: #2d1b4e;
+    --spell-border: #7c3aed;
+    --consume: #fb923c;
+    --consume-bg: #2d1a0e;
+    --consume-border: #c2410c;
+    --splash: #38bdf8;
+    --splash-bg: #0c2233;
+    --splash-border: #0369a1;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  h1, h2, h3, .display { font-family: 'Fredoka', sans-serif; }
+
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* HEADER */
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .header-title { font-family: 'Fredoka', sans-serif; font-size: 22px; color: var(--accent2); }
+  .header-info { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .stat-pill {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stat-pill span { color: var(--text2); }
+  .stat-pill strong { color: var(--text); }
+
+  /* PHASE INDICATOR */
+  .phase-bar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 20px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .phase-step {
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    color: var(--text3);
+    background: var(--card);
+  }
+  .phase-step.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .phase-step.done { background: var(--bg3); border-color: var(--accent3); color: var(--accent3); }
+  .phase-arrow { color: var(--text3); font-size: 11px; }
+
+  /* MAIN LAYOUT */
+  .main { flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; max-width: 1200px; width: 100%; margin: 0 auto; }
+
+  /* CARDS */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .card-title {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 16px;
+    color: var(--accent2);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .badge {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    background: var(--bg3);
+    color: var(--text2);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  /* BUTTONS */
+  .btn {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+  .btn-success { background: var(--green); color: #0a1a0a; }
+  .btn-warning { background: var(--accent2); color: #1a0a00; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* SHOP */
+  .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .shop-item {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    position: relative;
+  }
+  .shop-item:hover { border-color: var(--accent2); transform: translateY(-1px); }
+  .shop-item.selected { border-color: var(--accent2); background: #2a2a1a; }
+  .shop-item-icon { font-size: 28px; margin-bottom: 6px; text-align: center; }
+  .shop-item-name { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+  .shop-item-cost { color: var(--accent2); font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+  .shop-item-desc { color: var(--text2); font-size: 11px; line-height: 1.4; }
+  .shop-item-type {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: 700;
+  }
+  .type-ingredient { background: var(--bg3); color: var(--accent3); }
+  .type-flask { background: var(--spell-bg); color: var(--spell); }
+
+  /* INVENTORY GRID */
+  .inv-grid {
+    display: grid;
+    gap: 4px;
+  }
+  .inv-cell {
+    width: 52px;
+    height: 52px;
+    background: var(--bg2);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--text3);
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .inv-cell:hover { border-color: var(--accent2); }
+  .inv-cell.occupied { border-style: solid; cursor: default; }
+  .inv-cell.spell-cell { border-color: var(--spell-border); background: var(--spell-bg); }
+  .inv-cell.consume-cell { border-color: var(--consume-border); background: var(--consume-bg); }
+  .inv-cell.splash-cell { border-color: var(--splash-border); background: var(--splash-bg); }
+  .inv-cell-content { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .inv-cell-icon { font-size: 20px; }
+  .inv-cell-label { font-size: 9px; font-weight: 700; text-align: center; line-height: 1.2; }
+
+  /* MONKEY CARD */
+  .monkey-card {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    flex: 1;
+    min-width: 200px;
+  }
+  .monkey-card.active-monkey { border-color: var(--accent3); }
+  .monkey-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .monkey-avatar { font-size: 36px; }
+  .monkey-name { font-family: 'Fredoka', sans-serif; font-size: 18px; }
+  .monkey-level { font-size: 11px; color: var(--accent2); font-weight: 700; }
+  .stat-bars { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .stat-row { display: flex; align-items: center; gap:8px; }
+  .stat-label { font-size: 11px; color: var(--text2); width: 28px; font-weight: 700; }
+  .stat-bar-bg { flex: 1; height: 8px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+  .stat-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .stat-val { font-size: 11px; font-weight: 700; width: 28px; text-align: right; }
+  .hp-bar { background: var(--green); }
+  .atk-bar { background: var(--red); }
+  .def-bar { background: var(--accent3); }
+  .spd-bar { background: var(--yellow); }
+
+  .spell-slots { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .spell-slot {
+    background: var(--spell-bg);
+    border: 1px solid var(--spell-border);
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--spell);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .spell-slot.empty { border-style: dashed; color: var(--text3); background: var(--bg2); border-color: var(--border); }
+
+  /* STATUS EFFECTS */
+  .status-effects { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; min-height: 24px; }
+  .status-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 700;
+  }
+  .status-burn { background: #7f1d1d; color: #fca5a5; }
+  .status-weak { background: #1c1917; color: #d6d3d1; }
+
+  /* BATTLE SCREEN */
+  .battle-arena {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .battle-monkey {
+    flex: 1;
+    min-width: 180px;
+    text-align: center;
+  }
+  .battle-monkey-icon { font-size: 52px; margin-bottom: 8px; display: block; }
+  .battle-monkey-name { font-family: 'Fredoka', sans-serif; font-size: 20px; margin-bottom: 4px; }
+  .battle-monkey-stats { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .battle-stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .hp-stat { color: var(--green); }
+  .atk-stat { color: var(--red); }
+  .def-stat { color: var(--accent3); }
+  .spd-stat { color: var(--yellow); }
+
+  .vs-divider {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 32px;
+    color: var(--text3);
+    text-align: center;
+  }
+
+  /* BATTLE LOG */
+  .battle-log {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    max-height: 160px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .log-entry { font-size: 12px; line-height: 1.5; padding: 3px 0; border-bottom: 1px solid var(--bg3); }
+  .log-entry:last-child { border-bottom: none; }
+  .log-dmg { color: var(--red); }
+  .log-heal { color: var(--green); }
+  .log-status { color: var(--yellow); }
+  .log-info { color: var(--accent3); }
+  .log-system { color: var(--text2); font-style: italic; }
+
+  /* POTION HAND */
+  .potion-hand { display: flex; gap: 8px; flex-wrap: wrap; }
+  .potion-card {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    min-width: 120px;
+    flex: 1;
+    max-width: 160px;
+  }
+  .potion-card:hover { transform: translateY(-2px); }
+  .potion-card.consume-potion { border-color: var(--consume-border); }
+  .potion-card.consume-potion:hover { border-color: var(--consume); }
+  .potion-card.splash-potion { border-color: var(--splash-border); }
+  .potion-card.splash-potion:hover { border-color: var(--splash); }
+  .potion-card-icon { font-size: 24px; margin-bottom: 4px; }
+  .potion-card-name { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
+  .potion-card-type { font-size: 10px; margin-bottom: 4px; }
+  .consume-label { color: var(--consume); }
+  .splash-label { color: var(--splash); }
+  .potion-card-effect { font-size: 11px; color: var(--text2); line-height: 1.3; }
+
+  .skip-btn-wrap { display: flex; align-items: center; }
+
+  /* BREW SCREEN */
+  .brew-section { display: flex; gap: 16px; flex-wrap: wrap; }
+  .brew-left { flex: 1; min-width: 220px; }
+  .brew-right { flex: 2; min-width: 280px; }
+
+  .ingredient-list { display: flex; flex-direction: column; gap: 6px; }
+  .ingredient-row {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .ingredient-row:hover { border-color: var(--accent2); }
+  .ingredient-row.selected-ing { border-color: var(--accent2); background: #2a2a1a; }
+  .ing-icon { font-size: 20px; }
+  .ing-info { flex: 1; }
+  .ing-name { font-weight: 700; font-size: 13px; }
+  .ing-count { font-size: 11px; color: var(--text2); }
+
+  .brew-builder {
+    background: var(--bg2);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    min-height: 120px;
+    margin-bottom: 10px;
+  }
+  .brew-slots { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .brew-slot {
+    background: var(--card);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 10px;
+    color: var(--text3);
+    cursor: pointer;
+  }
+  .brew-slot.filled { border-style: solid; border-color: var(--accent2); cursor: default; }
+  .brew-slot-icon { font-size: 24px; }
+  .brew-slot-name { font-size: 9px; text-align: center; color: var(--text2); }
+
+  .brew-preview {
+    background: var(--card);
+    border: 1px solid var(--accent3);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .brew-preview-title { font-size: 12px; color: var(--accent3); font-weight: 700; margin-bottom: 4px; }
+  .brew-preview-effects { font-size: 11px; color: var(--text2); line-height: 1.6; }
+
+  .flask-selector { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .flask-btn {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    transition: border-color 0.15s;
+    font-family: 'Nunito', sans-serif;
+  }
+  .flask-btn:hover { border-color: var(--accent2); }
+  .flask-btn.selected-flask { border-color: var(--consume); color: var(--consume); }
+  .flask-btn.selected-flask-splash { border-color: var(--splash); color: var(--splash); }
+
+  /* RESULT SCREEN */
+  .result-box {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .result-icon { font-size: 64px; margin-bottom: 16px; }
+  .result-title { font-family: 'Fredoka', sans-serif; font-size: 36px; margin-bottom: 8px; }
+  .result-sub { color: var(--text2); font-size: 16px; margin-bottom: 24px; }
+
+  /* FIELD EFFECTS */
+  .field-effects { display: flex; gap: 8px; flex-wrap: wrap; }
+  .field-effect {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .field-effect.splash-effect { border-color: var(--splash-border); color: var(--splash); }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .tab {
+    padding: 6px 14px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--bg2);
+    color: var(--text2);
+    font-family: 'Nunito', sans-serif;
+  }
+  .tab.active { background: var(--card); color: var(--text); border-color: var(--border); }
+
+  /* TWO PLAYER LAYOUT */
+  .two-player { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .two-player { grid-template-columns: 1fr; } }
+
+  .player-section {
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    background: var(--card);
+  }
+  .player-section.p1 { border-color: var(--accent); }
+  .player-section.p2 { border-color: var(--accent3); }
+  .player-header {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 18px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .p1 .player-header { color: var(--accent); }
+  .p2 .player-header { color: var(--accent3); }
+
+  .monkeys-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* WORLD MAP */
+  .world-map { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 0; }
+  .level-node {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Fredoka', sans-serif;
+    font-size: 16px;
+    border: 2px solid var(--border);
+    background: var(--bg2);
+    color: var(--text3);
+  }
+  .level-node.current { border-color: var(--accent2); background: var(--bg3); color: var(--accent2); }
+  .level-node.completed { border-color: var(--green); background: #0a2a0a; color: var(--green); }
+  .level-node.boss { border-color: var(--accent); }
+  .level-connector { width: 20px; height: 2px; background: var(--border); }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+  .text-muted { color: var(--text2); }
+  .text-sm { font-size: 12px; }
+
+  .brew-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
+
+  .turn-indicator {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .hp-bar-large {
+    width: 100%;
+    height: 10px;
+    background: var(--bg2);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .hp-fill { height: 100%; background: var(--green); border-radius: 5px; transition: width 0.4s; }
+  .hp-fill.low { background: var(--yellow); }
+  .hp-fill.critical { background: var(--red); }
+
+  .animate-hit { animation: hitFlash 0.3s ease; }
+  @keyframes hitFlash { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .potion-used-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(233,69,96,0.15);
+    border-radius: 10px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     SCREEN: TITLE
+     ============================================================ -->
+<div id="screen-title" class="screen active">
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:40px 20px;text-align:center">
+    <div style="font-size:72px">🐵</div>
+    <div>
+      <h1 style="font-size:48px;color:var(--accent2);line-height:1">Potion Monkey</h1>
+      <p style="font-size:18px;color:var(--text2);margin-top:6px">World 1 Prototype</p>
+    </div>
+    <p style="color:var(--text2);max-width:400px;line-height:1.6">Two wizards. Three monkeys each. Brew potions, cast spells, and battle through the Treetop.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:280px">
+      <button class="btn btn-primary" style="font-size:16px;padding:12px 24px" onclick="startGame()">⚔️ Start Game</button>
+      <button class="btn btn-secondary" onclick="showRules()">📜 How to Play</button>
+    </div>
+    <p style="color:var(--text3);font-size:12px">Local multiplayer · 2 players · World 1</p>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: RULES
+     ============================================================ -->
+<div id="screen-rules" class="screen">
+  <div class="header">
+    <span class="header-title">📜 How to Play</span>
+    <button class="btn btn-secondary btn-sm" onclick="showScreen('screen-title')">← Back</button>
+  </div>
+  <div class="main" style="max-width:600px">
+    <div class="card">
+      <div class="card-title">The Loop</div>
+      <p style="color:var(--text2);line-height:1.8;font-size:13px">
+        Each round: <strong>Shop → Brew → Spellbook → Battle</strong><br>
+        Win a battle: +<span style="color:var(--accent2)">10🍌</span> &nbsp; Lose: +<span style="color:var(--accent2)">5🍌</span><br>
+        Complete 3 levels to finish World 1 and pick up a new monkey.
+      </p>
+    </div>
+    <div class="card">
+      <div class="card-title">Potion Types</div>
+      <p style="color:var(--spell);font-weight:700;margin-bottom:4px">✨ Spells (Perma)</p>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:10px">Passive buffs assigned to monkeys. Always active. No flask needed. Up to 3 per monkey. Order matters for Spirit Water / Boost Berry interactions.</p>
+      <p style="color:var(--consume);font-weight:700;margin-bottom:4px">🧪 Consumables</p>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:10px">Battle potions that affect your monkey. Flask is returned after use. 2×1 in inventory.</p>
+      <p style="color:var(--splash);font-weight:700;margin-bottom:4px">💦 Splashes</p>
+      <p style="color:var(--text2);font-size:13px">Thrown onto the battlefield. Flask is consumed. 2×1 in inventory.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Stats</div>
+      <p style="color:var(--text2);font-size:13px;line-height:1.8">
+        <span style="color:var(--green)">❤️ HP</span> — health pool<br>
+        <span style="color:var(--red)">⚔️ ATK</span> — damage per hit<br>
+        <span style="color:var(--accent3)">🛡 DEF</span> — flat damage reduction. Damage = max(1, ATK - DEF)<br>
+        <span style="color:var(--yellow)">💨 SPD</span> — higher speed attacks first. Ties = simultaneous
+      </p>
+    </div>
+    <button class="btn btn-primary" onclick="showScreen('screen-title')">Got it!</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: SHOP
+     ============================================================ -->
+<div id="screen-shop" class="screen">
+  <div class="header">
+    <span class="header-title">🏪 World 1 Shop</span>
+    <div class="header-info">
+      <div class="stat-pill"><span>Player:</span><strong id="shop-player-name">P1</strong></div>
+      <div class="stat-pill"><span>🍌</span><strong id="shop-bananas">10</strong></div>
+      <div class="stat-pill"><span>Level:</span><strong id="shop-level-display">1-1</strong></div>
+    </div>
+  </div>
+  <div class="phase-bar">
+    <div class="phase-step active">Shop</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Brew</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Spellbook</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Battle</div>
+  </div>
+  <div class="main">
+    <div class="card">
+      <div class="card-title">🍌 Flasks <span class="badge">always available</span></div>
+      <div class="shop-grid" id="flask-shop"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🌿 Ingredients <span class="badge">world 1</span></div>
+      <div class="shop-grid" id="ingredient-shop"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+      <div style="color:var(--text2);font-size:13px;align-self:center">Cart: <strong id="cart-count" style="color:var(--accent2)">0</strong> items · <strong id="cart-total" style="color:var(--accent2)">0🍌</strong></div>
+      <button class="btn btn-secondary" onclick="clearCart()">Clear</button>
+      <button class="btn btn-success" id="buy-btn" onclick="buyCart()">Buy All</button>
+      <button class="btn btn-primary" onclick="goToBrew()">Done Shopping →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: BREW
+     ============================================================ -->
+<div id="screen-brew" class="screen">
+  <div class="header">
+    <span class="header-title">⚗️ Brewing Stand</span>
+    <div class="header-info">
+      <div class="stat-pill"><span>Player:</span><strong id="brew-player-name">P1</strong></div>
+      <div class="stat-pill"><span>🍌</span><strong id="brew-bananas">10</strong></div>
+    </div>
+  </div>
+  <div class="phase-bar">
+    <div class="phase-step done">Shop</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step active">Brew</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Spellbook</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Battle</div>
+  </div>
+  <div class="main">
+    <div class="brew-section">
+      <div class="brew-left">
+        <div class="card">
+          <div class="card-title">🎒 Inventory</div>
+          <div class="section-label">Ingredients</div>
+          <div class="ingredient-list" id="brew-ingredients"></div>
+          <hr class="divider">
+          <div class="section-label">Flasks</div>
+          <div id="brew-flasks" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+        </div>
+      </div>
+      <div class="brew-right">
+        <div class="card">
+          <div class="card-title">🫧 Cauldron</div>
+          <div class="section-label">Drop ingredients (1–3). Select flask type. Brew.</div>
+          <div class="brew-slots" id="brew-slots"></div>
+          <div class="flask-selector" id="flask-selector">
+            <button class="flask-btn" id="flask-consume-btn" onclick="selectFlask('consume')">🧪 Consume Flask</button>
+            <button class="flask-btn" id="flask-splash-btn" onclick="selectFlask('splash')">💦 Splash Flask</button>
+            <button class="flask-btn" id="flask-spell-btn" onclick="selectFlask('spell')">✨ Spell (no flask)</button>
+          </div>
+          <div id="brew-preview" class="brew-preview" style="display:none"></div>
+          <div class="brew-actions">
+            <button class="btn btn-success" id="brew-btn" onclick="brewPotion()" disabled>Brew Potion</button>
+            <button class="btn btn-secondary btn-sm" onclick="clearCauldron()">Clear</button>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div class="card-title">🧳 Brewed Potions <span class="badge" id="brewed-count">0</span></div>
+          <div id="brewed-list" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="goToSpellbook()">Done Brewing →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: SPELLBOOK
+     ============================================================ -->
+<div id="screen-spellbook" class="screen">
+  <div class="header">
+    <span class="header-title">📖 Spellbook</span>
+    <div class="header-info">
+      <div class="stat-pill"><span>Player:</span><strong id="spell-player-name">P1</strong></div>
+    </div>
+  </div>
+  <div class="phase-bar">
+    <div class="phase-step done">Shop</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step done">Brew</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step active">Spellbook</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Battle</div>
+  </div>
+  <div class="main">
+    <div class="card">
+      <p style="color:var(--text2);font-size:13px;margin-bottom:12px">Assign spells to your monkeys. Up to 3 per monkey. Order matters — Spirit Water boosts the <em>next</em> spell in the list.</p>
+      <div id="spellbook-monkeys" style="display:flex;flex-direction:column;gap:14px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">✨ Available Spells</div>
+      <div id="available-spells" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="goToLoadout()">Set Loadout →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: LOADOUT
+     ============================================================ -->
+<div id="screen-loadout" class="screen">
+  <div class="header">
+    <span class="header-title">🎒 Battle Loadout</span>
+    <div class="header-info">
+      <div class="stat-pill"><span>Player:</span><strong id="loadout-player-name">P1</strong></div>
+    </div>
+  </div>
+  <div class="main">
+    <div class="card">
+      <div class="card-title">⚔️ Choose your monkey for this battle</div>
+      <div id="loadout-monkeys" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🧳 Battle Inventory <span class="badge">3×3 grid · drag to fill</span></div>
+      <p style="color:var(--text2);font-size:12px;margin-bottom:10px">Click potions from your stash to add to inventory. Consumables and splashes are 2×1.</p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div>
+          <div class="section-label">Battle inventory (9 slots)</div>
+          <div id="battle-inv-grid" style="display:grid;grid-template-columns:repeat(3,52px);gap:4px"></div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div class="section-label">Available potions</div>
+          <div id="loadout-potions" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="finishLoadout()">Ready for Battle →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: BATTLE
+     ============================================================ -->
+<div id="screen-battle" class="screen">
+  <div class="header">
+    <span class="header-title">⚔️ Battle!</span>
+    <div class="header-info">
+      <div class="stat-pill"><span>Turn:</span><strong id="turn-counter">1</strong></div>
+      <div class="stat-pill"><span>Level:</span><strong id="battle-level-display">1-1</strong></div>
+    </div>
+  </div>
+  <div class="main">
+    <!-- Arena -->
+    <div class="battle-arena">
+      <div class="battle-monkey" id="battle-p1-display"></div>
+      <div class="vs-divider">VS</div>
+      <div class="battle-monkey" id="battle-p2-display"></div>
+    </div>
+
+    <!-- Field effects -->
+    <div class="card" id="field-effects-card" style="display:none">
+      <div class="card-title">🌀 Field Effects</div>
+      <div class="field-effects" id="field-effects-list"></div>
+    </div>
+
+    <!-- Active player potion choice -->
+    <div class="card" id="potion-choice-card">
+      <div class="card-title" id="potion-choice-title">P1's turn — play a potion or skip</div>
+      <div class="potion-hand" id="potion-hand"></div>
+    </div>
+
+    <!-- Battle log -->
+    <div class="card">
+      <div class="card-title">📜 Battle Log</div>
+      <div class="battle-log" id="battle-log"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: RESULT
+     ============================================================ -->
+<div id="screen-result" class="screen">
+  <div class="main" style="align-items:center;justify-content:center;flex:1">
+    <div class="card result-box" style="max-width:400px;width:100%">
+      <div class="result-icon" id="result-icon">🏆</div>
+      <div class="result-title" id="result-title">P1 Wins!</div>
+      <div class="result-sub" id="result-sub">+10🍌 earned</div>
+      <div id="result-details" style="color:var(--text2);font-size:13px;margin-bottom:20px;line-height:1.7"></div>
+      <button class="btn btn-primary" id="result-continue-btn" onclick="continueAfterBattle()">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: MONKEY PICKUP
+     ============================================================ -->
+<div id="screen-monkey-pickup" class="screen">
+  <div class="header"><span class="header-title">🐵 New Monkey!</span></div>
+  <div class="main" style="align-items:center;justify-content:center;flex:1">
+    <div class="card" style="max-width:500px;width:100%;text-align:center">
+      <div style="font-size:64px;margin-bottom:12px" id="pickup-icon">🐵</div>
+      <h2 style="font-family:Fredoka,sans-serif;font-size:28px;color:var(--accent2);margin-bottom:8px" id="pickup-name">Jungle Monkey</h2>
+      <p style="color:var(--text2);margin-bottom:20px" id="pickup-desc">A nimble monkey from the treetops.</p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap" id="pickup-actions"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// GAME DATA
+// ============================================================
+
+const INGREDIENTS = {
+  banana_peel: {
+    id: 'banana_peel', name: 'Banana Peel', icon: '🍌', cost: 2,
+    desc: 'PP: +1-3 max HP · SP: Heal 1-3hp, lasts 2 turns · CP: Replenish 3hp up to max',
+    effects: {
+      spell: (lv) => ({ type: 'hp_boost', value: lv, desc: `+${lv} max HP` }),
+      splash: (lv) => ({ type: 'heal_field', value: lv, turns: 2, desc: `Heal ${lv}hp/turn for 2 turns` }),
+      consume: (lv) => ({ type: 'heal', value: 3, desc: 'Replenish 3hp up to max HP' })
+    }
+  },
+  spider_eye: {
+    id: 'spider_eye', name: 'Spider Eye', icon: '🕷️', cost: 3,
+    desc: 'PP: +1 ATK · SP: 50% negate enemy ATK (1 turn) · CP: +4-6 next ATK',
+    effects: {
+      spell: (lv) => ({ type: 'atk_boost', value: 1, desc: '+1 ATK' }),
+      splash: (lv) => ({ type: 'negate_atk', chance: 50, turns: 1, desc: '50% negate enemy ATK (1 turn)' }),
+      consume: (lv) => ({ type: 'boost_next_atk', value: [4,5,6][lv-1], desc: `+${[4,5,6][lv-1]} to next attack` })
+    }
+  },
+  newt: {
+    id: 'newt', name: 'Newt', icon: '🦎', cost: 5,
+    desc: 'PP: 1.25x ATK per 🍌 held · SP: ($+1) 2% chance to do 7 dmg · CP: +1 dmg per 🍌 held',
+    effects: {
+      spell: (lv) => ({ type: 'banana_atk', desc: '1.25x ATK per 🍌 held at battle start' }),
+      splash: (lv) => ({ type: 'newt_splash', desc: '(🍌+1) × 2% chance to deal 7 dmg to opponent' }),
+      consume: (lv) => ({ type: 'banana_dmg', desc: '+1 dmg per 🍌 held this attack' })
+    }
+  },
+  bones: {
+    id: 'bones', name: 'Bones', icon: '🦴', cost: 4,
+    desc: 'PP: 33% nullify enemy battle potion · SP: 60% deal 2 dmg to attacker · CP: 33-50% dmg nullification',
+    effects: {
+      spell: (lv) => ({ type: 'nullify_potion', chance: 33, desc: '33% nullify enemy battle potion' }),
+      splash: (lv) => ({ type: 'hazard_dmg', chance: 60, value: 2, turns: 1, desc: '60% deal 2 dmg to attacker' }),
+      consume: (lv) => ({ type: 'dmg_reduction', value: [33,42,50][lv-1], desc: `${[33,42,50][lv-1]}% damage nullification` })
+    }
+  },
+  spirit_water: {
+    id: 'spirit_water', name: 'Spirit Water', icon: '💧', cost: 5,
+    desc: 'PP: Boost next spell in rotation by 10% · SP: Boost next SP by 25% · CP: Boost next CP by 25%',
+    effects: {
+      spell: (lv) => ({ type: 'boost_next_spell', value: 10, desc: 'Boost next spell in rotation by 10%' }),
+      splash: (lv) => ({ type: 'boost_next_splash', value: 25, desc: 'Boost next splash by 25%' }),
+      consume: (lv) => ({ type: 'boost_next_consume', value: 25, desc: 'Boost next consumable by 25%' })
+    }
+  }
+};
+
+const FLASKS = {
+  consume_flask: { id: 'consume_flask', name: 'Consume Flask', icon: '🧪', cost: 2, desc: 'Required for consumable potions. Returned after use.' },
+  splash_flask: { id: 'splash_flask', name: 'Splash Flask', icon: '💦', cost: 2, desc: 'Required for splash potions. Consumed on throw.' }
+};
+
+const WORLD_1_MONKEYS = [
+  { id: 'jungle', name: 'Jungle Monkey', icon: '🐵', desc: 'A nimble monkey from the treetops.' },
+  { id: 'scout', name: 'Scout Monkey', icon: '🙊', desc: 'Quick and evasive, hard to pin down.' },
+  { id: 'brute', name: 'Brute Monkey', icon: '🦍', desc: 'Slow but hits like a falling coconut.' }
+];
+
+// Total stat pool: 12. HP first (8-10), ATK minimum 1, remainder random across ATK/DEF/SPD.
+function rollMonkeyStats() {
+  const POOL = 14;
+
+  // HP between 8 and 10
+  const hp = 8 + Math.floor(Math.random() * 3);
+
+  // Minimums
+  let atk = 1;
+  let spd = 1;
+  let def = 0;
+
+  // Remaining points after minimums
+  let remaining = POOL - hp - atk - spd;
+
+  // Weighted cuts:
+  // ATK gets more → weight < 1
+  // DEF neutral → weight = 1
+  // SPD gets less → weight > 1
+  const atkBonus = weightedRandom(remaining, 0.6); // favors higher
+  const defBonus = weightedRandom(remaining - atkBonus, 1.0); // neutral
+  const spdBonus = remaining - atkBonus - defBonus; // whatever is left
+
+  return {
+    hp,
+    atk: atk + atkBonus,
+    def: def + defBonus,
+    spd: spd + spdBonus
+  };
+}
+
+function weightedRandom(max, weight) {
+  return Math.floor(Math.pow(Math.random(), weight) * (max + 1));
+}
+
+
+// ============================================================
+// GAME STATE
+// ============================================================
+
+let G = {};
+
+function initGame() {
+  G = {
+    level: 1, // 1-3
+    currentPhase: 'shop',
+    activePlayer: 0, // 0 = P1, 1 = P2
+    shopPrepDone: [false, false],
+    battlePhase: 'p1-potion', // p1-potion, p2-potion, resolve, done
+    turn: 1,
+    players: [
+      {
+        name: 'Player 1',
+        bananas: 10,
+        monkeys: [makeMonkey(WORLD_1_MONKEYS[0], 0)],
+        inventory: { ingredients: {}, consume_flask: 0, splash_flask: 0 },
+        brewedPotions: [],
+        battlePotions: [],
+        selectedMonkeyIdx: 0,
+        cart: []
+      },
+      {
+        name: 'Player 2',
+        bananas: 10,
+        monkeys: [makeMonkey(WORLD_1_MONKEYS[1], 1)],
+        inventory: { ingredients: {}, consume_flask: 0, splash_flask: 0 },
+        brewedPotions: [],
+        battlePotions: [],
+        selectedMonkeyIdx: 0,
+        cart: []
+      }
+    ],
+    battle: {
+      p1MonkeyIdx: 0,
+      p2MonkeyIdx: 0,
+      p1BattleMon: null,
+      p2BattleMon: null,
+      fieldEffects: [],
+      log: [],
+      turn: 1,
+      activePlayer: 0
+    },
+    cauldron: { ingredients: [], flaskType: null },
+    spellAssignment: { playerIdx: 0 }
+  };
+}
+
+function makeMonkey(template, ownerIdx) {
+  const stats = rollMonkeyStats();
+  return {
+    id: template.id,
+    name: template.name,
+    icon: template.icon,
+    desc: template.desc,
+    ownerId: ownerIdx,
+    level: 1,
+    maxHp: stats.hp,
+    hp: stats.hp,
+    atk: stats.atk,
+    def: stats.def,
+    spd: stats.spd,
+    spells: []
+  };
+}
+
+// ============================================================
+// SCREEN MANAGEMENT
+// ============================================================
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function showRules() { showScreen('screen-rules'); }
+
+function startGame() {
+  initGame();
+  G.activePlayer = 0;
+  renderShop();
+  showScreen('screen-shop');
+}
+
+// ============================================================
+// SHOP
+// ============================================================
+
+function renderShop() {
+  const p = G.players[G.activePlayer];
+  document.getElementById('shop-player-name').textContent = p.name;
+  document.getElementById('shop-bananas').textContent = p.bananas;
+  document.getElementById('shop-level-display').textContent = `1-${G.level}`;
+
+  // Flasks
+  const fs = document.getElementById('flask-shop');
+  fs.innerHTML = '';
+  Object.values(FLASKS).forEach(f => {
+    const inCart = p.cart.filter(c => c.id === f.id).length;
+    fs.innerHTML += `
+      <div class="shop-item" onclick="addToCart('flask','${f.id}')">
+        <div class="shop-item-icon">${f.icon}</div>
+        <div class="shop-item-name">${f.name}</div>
+        <div class="shop-item-cost">${f.cost}🍌</div>
+        <div class="shop-item-desc">${f.desc}</div>
+        ${inCart > 0 ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${inCart}</div>` : ''}
+      </div>`;
+  });
+
+  // Ingredients
+  const is = document.getElementById('ingredient-shop');
+  is.innerHTML = '';
+  Object.values(INGREDIENTS).forEach(ing => {
+    const inCart = p.cart.filter(c => c.id === ing.id).length;
+    is.innerHTML += `
+      <div class="shop-item" onclick="addToCart('ingredient','${ing.id}')">
+        <div class="shop-item-type type-ingredient">ingredient</div>
+        <div class="shop-item-icon">${ing.icon}</div>
+        <div class="shop-item-name">${ing.name}</div>
+        <div class="shop-item-cost">${ing.cost}🍌</div>
+        <div class="shop-item-desc">${ing.desc}</div>
+        ${inCart > 0 ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${inCart}</div>` : ''}
+      </div>`;
+  });
+
+  updateCartDisplay();
+}
+
+function addToCart(type, id) {
+  const p = G.players[G.activePlayer];
+  const item = type === 'flask' ? FLASKS[id] : INGREDIENTS[id];
+  const cartTotal = p.cart.reduce((s,c) => s + c.cost, 0);
+  if (cartTotal + item.cost > p.bananas) { flashMessage('Not enough 🍌!'); return; }
+  p.cart.push({ type, id, cost: item.cost });
+  renderShop();
+}
+
+function clearCart() {
+  G.players[G.activePlayer].cart = [];
+  renderShop();
+}
+
+function buyCart() {
+  const p = G.players[G.activePlayer];
+  const total = p.cart.reduce((s,c) => s + c.cost, 0);
+  if (total > p.bananas) { flashMessage('Not enough 🍌!'); return; }
+  p.bananas -= total;
+  p.cart.forEach(item => {
+    if (item.type === 'flask') {
+      p.inventory[item.id] = (p.inventory[item.id] || 0) + 1;
+    } else {
+      p.inventory.ingredients[item.id] = (p.inventory.ingredients[item.id] || 0) + 1;
+    }
+  });
+  p.cart = [];
+  renderShop();
+}
+
+function updateCartDisplay() {
+  const p = G.players[G.activePlayer];
+  const total = p.cart.reduce((s,c) => s + c.cost, 0);
+  document.getElementById('cart-count').textContent = p.cart.length;
+  document.getElementById('cart-total').textContent = total + '🍌';
+}
+
+function goToBrew() {
+  renderBrew();
+  showScreen('screen-brew');
+}
+
+function flashMessage(msg) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:white;padding:8px 20px;border-radius:20px;font-weight:700;z-index:9999;font-family:Nunito,sans-serif';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1800);
+}
+
+// ============================================================
+// BREW
+// ============================================================
+
+function renderBrew() {
+  const p = G.players[G.activePlayer];
+  document.getElementById('brew-player-name').textContent = p.name;
+  document.getElementById('brew-bananas').textContent = p.bananas;
+
+  // Ingredients list
+  const il = document.getElementById('brew-ingredients');
+  il.innerHTML = '';
+  Object.entries(p.inventory.ingredients).forEach(([id, count]) => {
+    if (count <= 0) return;
+    const ing = INGREDIENTS[id];
+    const inCauldron = G.cauldron.ingredients.filter(i => i === id).length;
+    il.innerHTML += `
+      <div class="ingredient-row" onclick="addToCauldron('${id}')">
+        <span class="ing-icon">${ing.icon}</span>
+        <div class="ing-info">
+          <div class="ing-name">${ing.name}</div>
+          <div class="ing-count">×${count - inCauldron} available</div>
+        </div>
+        <button class="btn btn-secondary btn-sm">Add</button>
+      </div>`;
+  });
+  if (il.innerHTML === '') il.innerHTML = '<p style="color:var(--text3);font-size:12px">No ingredients purchased</p>';
+
+  // Flasks
+  const fl = document.getElementById('brew-flasks');
+  fl.innerHTML = '';
+  if ((p.inventory.consume_flask || 0) > 0)
+    fl.innerHTML += `<div class="stat-pill">🧪 ×${p.inventory.consume_flask}</div>`;
+  if ((p.inventory.splash_flask || 0) > 0)
+    fl.innerHTML += `<div class="stat-pill">💦 ×${p.inventory.splash_flask}</div>`;
+  if (fl.innerHTML === '') fl.innerHTML = '<p style="color:var(--text3);font-size:12px">No flasks</p>';
+
+  renderCauldron();
+  renderBrewedList();
+}
+
+function renderCauldron() {
+  const slots = document.getElementById('brew-slots');
+  slots.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const id = G.cauldron.ingredients[i];
+    if (id) {
+      const ing = INGREDIENTS[id];
+      slots.innerHTML += `
+        <div class="brew-slot filled" onclick="removeFromCauldron(${i})">
+          <span class="brew-slot-icon">${ing.icon}</span>
+          <span class="brew-slot-name">${ing.name}</span>
+        </div>`;
+    } else {
+      slots.innerHTML += `<div class="brew-slot">drop here</div>`;
+    }
+  }
+
+  updateBrewPreview();
+
+  const brewBtn = document.getElementById('brew-btn');
+  brewBtn.disabled = G.cauldron.ingredients.length === 0 || !G.cauldron.flaskType;
+}
+
+function addToCauldron(id) {
+  const p = G.players[G.activePlayer];
+  const inCauldron = G.cauldron.ingredients.filter(i => i === id).length;
+  const available = (p.inventory.ingredients[id] || 0) - inCauldron;
+  if (available <= 0) { flashMessage('No more available!'); return; }
+  if (G.cauldron.ingredients.length >= 3) { flashMessage('Cauldron full! (max 3 ingredients)'); return; }
+  // Only allow same ingredient for multi-level, or different for mix (basic rule)
+  if (G.cauldron.ingredients.length > 0) {
+    const existingTypes = [...new Set(G.cauldron.ingredients)];
+    if (existingTypes.length === 1 && existingTypes[0] !== id && G.cauldron.ingredients.length >= 1) {
+      flashMessage('Mix potions coming in World 2!');
+      return;
+    }
+    if (existingTypes.includes(id) === false && existingTypes.length >= 1) {
+      flashMessage('Use same ingredient to level up (mix potions: World 2+)');
+      return;
+    }
+  }
+  G.cauldron.ingredients.push(id);
+  renderCauldron();
+  renderBrew();
+}
+
+function removeFromCauldron(idx) {
+  G.cauldron.ingredients.splice(idx, 1);
+  renderCauldron();
+  renderBrew();
+}
+
+function clearCauldron() {
+  G.cauldron.ingredients = [];
+  G.cauldron.flaskType = null;
+  document.querySelectorAll('.flask-btn').forEach(b => b.classList.remove('selected-flask','selected-flask-splash'));
+  renderCauldron();
+}
+
+function selectFlask(type) {
+  const p = G.players[G.activePlayer];
+  if (type === 'consume' && (p.inventory.consume_flask || 0) <= 0) { flashMessage('No consume flasks!'); return; }
+  if (type === 'splash' && (p.inventory.splash_flask || 0) <= 0) { flashMessage('No splash flasks!'); return; }
+  G.cauldron.flaskType = type;
+  document.getElementById('flask-consume-btn').classList.toggle('selected-flask', type === 'consume');
+  document.getElementById('flask-splash-btn').classList.toggle('selected-flask-splash', type === 'splash');
+  document.getElementById('flask-spell-btn').classList.toggle('selected-flask', type === 'spell');
+  renderCauldron();
+}
+
+function updateBrewPreview() {
+  const preview = document.getElementById('brew-preview');
+  if (G.cauldron.ingredients.length === 0 || !G.cauldron.flaskType) {
+    preview.style.display = 'none';
+    return;
+  }
+  const id = G.cauldron.ingredients[0];
+  const ing = INGREDIENTS[id];
+  const lv = G.cauldron.ingredients.length;
+  const type = G.cauldron.flaskType;
+  const effect = ing.effects[type](lv);
+  preview.style.display = 'block';
+  preview.innerHTML = `
+    <div class="brew-preview-title">${ing.icon} ${ing.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'} · Level ${lv}</div>
+    <div class="brew-preview-effects">${effect.desc}</div>`;
+  document.getElementById('brew-btn').disabled = false;
+}
+
+function brewPotion() {
+  const p = G.players[G.activePlayer];
+  if (G.cauldron.ingredients.length === 0 || !G.cauldron.flaskType) return;
+
+  const id = G.cauldron.ingredients[0];
+  const ing = INGREDIENTS[id];
+  const lv = G.cauldron.ingredients.length;
+  const type = G.cauldron.flaskType;
+  const effect = ing.effects[type](lv);
+
+  // Consume ingredients
+  G.cauldron.ingredients.forEach(ingId => {
+    p.inventory.ingredients[ingId]--;
+  });
+
+  // Consume flask (spells don't need one, consume returns flask)
+  if (type === 'splash') p.inventory.splash_flask--;
+  // consume flask is returned so no decrement
+
+  const potion = {
+    id: `${id}_${type}_${Date.now()}`,
+    ingredientId: id,
+    name: `${ing.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'}`,
+    icon: ing.icon,
+    type,
+    level: lv,
+    effect
+  };
+
+  p.brewedPotions.push(potion);
+
+  G.cauldron.ingredients = [];
+  G.cauldron.flaskType = null;
+  document.querySelectorAll('.flask-btn').forEach(b => b.classList.remove('selected-flask','selected-flask-splash'));
+
+  renderBrew();
+  flashMessage(`Brewed: ${potion.name} Lv${lv}!`);
+}
+
+function renderBrewedList() {
+  const p = G.players[G.activePlayer];
+  const list = document.getElementById('brewed-list');
+  list.innerHTML = '';
+  document.getElementById('brewed-count').textContent = p.brewedPotions.length;
+  if (p.brewedPotions.length === 0) {
+    list.innerHTML = '<p style="color:var(--text3);font-size:12px">Nothing brewed yet</p>';
+    return;
+  }
+  p.brewedPotions.forEach((pot, idx) => {
+    const typeColor = pot.type === 'spell' ? 'var(--spell)' : pot.type === 'consume' ? 'var(--consume)' : 'var(--splash)';
+    list.innerHTML += `
+      <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+        <span style="font-size:20px">${pot.icon}</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${pot.name} <span style="color:var(--text3);font-size:11px">Lv${pot.level}</span></div>
+          <div style="font-size:11px;color:var(--text2)">${pot.effect.desc}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${typeColor}">${pot.type}</span>
+        <button class="btn btn-secondary btn-sm" onclick="discardPotion(${idx})">✕</button>
+      </div>`;
+  });
+}
+
+function discardPotion(idx) {
+  const p = G.players[G.activePlayer];
+  // Return consume flask
+  if (p.brewedPotions[idx].type === 'consume') p.inventory.consume_flask++;
+  p.brewedPotions.splice(idx, 1);
+  renderBrewedList();
+}
+
+function goToSpellbook() {
+  G.spellAssignment.playerIdx = G.activePlayer;
+  renderSpellbook();
+  showScreen('screen-spellbook');
+}
+
+// ============================================================
+// SPELLBOOK
+// ============================================================
+
+function renderSpellbook() {
+  const p = G.players[G.activePlayer];
+  document.getElementById('spell-player-name').textContent = p.name;
+
+  const spells = p.brewedPotions.filter(pot => pot.type === 'spell');
+  const monkeysDiv = document.getElementById('spellbook-monkeys');
+  monkeysDiv.innerHTML = '';
+
+  p.monkeys.forEach((mon, mIdx) => {
+    monkeysDiv.innerHTML += `
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:24px">${mon.icon}</span>
+          <span style="font-family:Fredoka,sans-serif;font-size:16px">${mon.name}</span>
+          <span style="color:var(--text2);font-size:12px">Lv${mon.level} · ${mon.hp}/${mon.maxHp}hp · ${mon.atk}atk · ${mon.def}def · ${mon.spd}spd</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap" id="monkey-spell-slots-${mIdx}">
+          ${[0,1,2].map(i => {
+            const spell = mon.spells[i];
+            if (spell) {
+              return `<div class="spell-slot">${spell.icon} ${spell.name} Lv${spell.level} <button onclick="removeSpell(${mIdx},${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:4px">✕</button></div>`;
+            }
+            return `<div class="spell-slot empty" id="spell-slot-${mIdx}-${i}">slot ${i+1}</div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  });
+
+  const availDiv = document.getElementById('available-spells');
+  availDiv.innerHTML = '';
+  const assignedIds = p.monkeys.flatMap(m => m.spells.map(s => s.id));
+  const unassigned = spells.filter(s => !assignedIds.includes(s.id));
+
+  if (unassigned.length === 0) {
+    availDiv.innerHTML = '<p style="color:var(--text3);font-size:12px">No unassigned spells</p>';
+    return;
+  }
+
+  unassigned.forEach(spell => {
+    availDiv.innerHTML += `
+      <div style="background:var(--spell-bg);border:1px solid var(--spell-border);border-radius:8px;padding:8px 10px;cursor:pointer" onclick="showSpellAssignMenu('${spell.id}')">
+        <div style="font-size:13px;font-weight:700;color:var(--spell)">${spell.icon} ${spell.name} Lv${spell.level}</div>
+        <div style="font-size:11px;color:var(--text2)">${spell.effect.desc}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Click to assign →</div>
+      </div>`;
+  });
+}
+
+function showSpellAssignMenu(spellId) {
+  const p = G.players[G.activePlayer];
+  const spell = p.brewedPotions.find(s => s.id === spellId);
+  if (!spell) return;
+
+  const options = p.monkeys.map((mon, idx) => {
+    const hasRoom = mon.spells.length < 3;
+    return `<button class="btn ${hasRoom ? 'btn-secondary' : 'btn-secondary'}" ${!hasRoom ? 'disabled' : ''} onclick="assignSpell('${spellId}',${idx})" style="display:flex;align-items:center;gap:8px;width:100%">
+      <span>${mon.icon}</span> <span>${mon.name}</span> <span style="color:var(--text3);font-size:11px">(${mon.spells.length}/3 spells)</span>
+    </button>`;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:999';
+  overlay.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:320px;width:90%">
+      <div style="font-family:Fredoka,sans-serif;font-size:18px;margin-bottom:12px">Assign ${spell.icon} ${spell.name}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${options}</div>
+      <button class="btn btn-secondary btn-sm" onclick="this.closest('.overlay-el').remove()">Cancel</button>
+    </div>`;
+  overlay.classList.add('overlay-el');
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+}
+
+function assignSpell(spellId, monkeyIdx) {
+  const p = G.players[G.activePlayer];
+  const spell = p.brewedPotions.find(s => s.id === spellId);
+  const mon = p.monkeys[monkeyIdx];
+  if (!spell || mon.spells.length >= 3) return;
+
+  // Apply spell effect to monkey
+  applySpellToMonkey(mon, spell);
+  mon.spells.push(spell);
+
+  document.querySelectorAll('.overlay-el').forEach(el => el.remove());
+  renderSpellbook();
+}
+
+function applySpellToMonkey(mon, spell) {
+  const eff = spell.effect;
+  if (eff.type === 'hp_boost') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
+  if (eff.type === 'atk_boost') { mon.atk += eff.value; }
+  // banana_atk applied at battle start based on current bananas
+}
+
+function removeSpell(monkeyIdx, spellIdx) {
+  const p = G.players[G.activePlayer];
+  const mon = p.monkeys[monkeyIdx];
+  const spell = mon.spells[spellIdx];
+
+  // Revert spell effect
+  const eff = spell.effect;
+  if (eff.type === 'hp_boost') { mon.maxHp -= eff.value; mon.hp = Math.min(mon.hp, mon.maxHp); }
+  if (eff.type === 'atk_boost') { mon.atk -= eff.value; }
+
+  mon.spells.splice(spellIdx, 1);
+  renderSpellbook();
+}
+
+function goToLoadout() {
+  renderLoadout();
+  showScreen('screen-loadout');
+}
+
+// ============================================================
+// LOADOUT
+// ============================================================
+
+function renderLoadout() {
+  const p = G.players[G.activePlayer];
+  document.getElementById('loadout-player-name').textContent = p.name;
+
+  // Monkey selection
+  const monDiv = document.getElementById('loadout-monkeys');
+  monDiv.innerHTML = '';
+  p.monkeys.forEach((mon, idx) => {
+    const sel = p.selectedMonkeyIdx === idx;
+    monDiv.innerHTML += `
+      <div class="monkey-card ${sel ? 'active-monkey' : ''}" onclick="selectBattleMonkey(${idx})" style="cursor:pointer;max-width:200px">
+        <div class="monkey-header">
+          <span class="monkey-avatar">${mon.icon}</span>
+          <div><div class="monkey-name">${mon.name}</div><div class="monkey-level">Lv${mon.level}</div></div>
+        </div>
+        <div class="stat-bars">
+          <div class="stat-row"><span class="stat-label" style="color:var(--green)">HP</span><div class="stat-bar-bg"><div class="stat-bar-fill hp-bar" style="width:${(mon.hp/mon.maxHp)*100}%"></div></div><span class="stat-val" style="color:var(--green)">${mon.hp}/${mon.maxHp}</span></div>
+          <div class="stat-row"><span class="stat-label" style="color:var(--red)">ATK</span><div class="stat-bar-bg"><div class="stat-bar-fill atk-bar" style="width:${Math.min(mon.atk*10,100)}%"></div></div><span class="stat-val" style="color:var(--red)">${mon.atk}</span></div>
+          <div class="stat-row"><span class="stat-label" style="color:var(--accent3)">DEF</span><div class="stat-bar-bg"><div class="stat-bar-fill def-bar" style="width:${Math.min(mon.def*20,100)}%"></div></div><span class="stat-val" style="color:var(--accent3)">${mon.def}</span></div>
+          <div class="stat-row"><span class="stat-label" style="color:var(--yellow)">SPD</span><div class="stat-bar-bg"><div class="stat-bar-fill spd-bar" style="width:${Math.min(mon.spd*10,100)}%"></div></div><span class="stat-val" style="color:var(--yellow)">${mon.spd}</span></div>
+        </div>
+        ${sel ? '<div style="color:var(--accent3);font-size:11px;font-weight:700;text-align:center">✓ Selected</div>' : ''}
+      </div>`;
+  });
+
+  // Battle inventory grid
+  renderBattleGrid();
+
+  // Available battle potions
+  const potDiv = document.getElementById('loadout-potions');
+  potDiv.innerHTML = '';
+  const battlePots = p.brewedPotions.filter(pot => pot.type !== 'spell' && !p.battlePotions.find(bp => bp.id === pot.id));
+  if (battlePots.length === 0) {
+    potDiv.innerHTML = '<p style="color:var(--text3);font-size:12px">No battle potions brewed</p>';
+    return;
+  }
+  battlePots.forEach(pot => {
+    const typeColor = pot.type === 'consume' ? 'var(--consume)' : 'var(--splash)';
+    potDiv.innerHTML += `
+      <div style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer" onclick="addToBattleInv('${pot.id}')">
+        <span style="font-size:18px">${pot.icon}</span>
+        <div style="flex:1"><div style="font-size:12px;font-weight:700">${pot.name} Lv${pot.level}</div><div style="font-size:11px;color:var(--text2)">${pot.effect.desc}</div></div>
+        <span style="font-size:10px;font-weight:700;color:${typeColor}">${pot.type}</span>
+        <button class="btn btn-secondary btn-sm">+Add</button>
+      </div>`;
+  });
+}
+
+function selectBattleMonkey(idx) {
+  G.players[G.activePlayer].selectedMonkeyIdx = idx;
+  renderLoadout();
+}
+
+function renderBattleGrid() {
+  const p = G.players[G.activePlayer];
+  const grid = document.getElementById('battle-inv-grid');
+  grid.innerHTML = '';
+  // 3x3 = 9 cells, potions take 2 cells each
+  let usedCells = [];
+  p.battlePotions.forEach((pot, pIdx) => {
+    // Each potion takes 2 consecutive cells
+    const start = usedCells.length > 0 ? Math.max(...usedCells) + 1 : 0;
+    usedCells.push(start, start + 1);
+  });
+
+  for (let i = 0; i < 9; i++) {
+    const potIdx = Math.floor(usedCells.indexOf(i) / 2);
+    if (usedCells.indexOf(i) >= 0 && usedCells.indexOf(i) % 2 === 0) {
+      // First cell of a potion
+      const pot = p.battlePotions[potIdx];
+      const typeClass = pot.type === 'consume' ? 'consume-cell' : 'splash-cell';
+      grid.innerHTML += `
+        <div class="inv-cell occupied ${typeClass}">
+          <div class="inv-cell-content">
+            <span class="inv-cell-icon">${pot.icon}</span>
+            <span class="inv-cell-label">${pot.type === 'consume' ? 'CP' : 'SP'}</span>
+          </div>
+        </div>`;
+    } else if (usedCells.indexOf(i) >= 0 && usedCells.indexOf(i) % 2 === 1) {
+      // Second cell of potion
+      const pot = p.battlePotions[potIdx < 0 ? 0 : potIdx];
+      const typeClass = pot ? (pot.type === 'consume' ? 'consume-cell' : 'splash-cell') : '';
+      grid.innerHTML += `<div class="inv-cell occupied ${typeClass}" style="opacity:0.5"></div>`;
+    } else {
+      grid.innerHTML += `<div class="inv-cell">+</div>`;
+    }
+  }
+}
+
+function addToBattleInv(potId) {
+  const p = G.players[G.activePlayer];
+  const usedSlots = p.battlePotions.length * 2;
+  if (usedSlots + 2 > 9) { flashMessage('Battle inventory full! (max 4 potions)'); return; }
+  const pot = p.brewedPotions.find(b => b.id === potId);
+  if (!pot) return;
+  p.battlePotions.push(pot);
+  renderLoadout();
+}
+
+function finishLoadout() {
+  const p = G.players[G.activePlayer];
+  if (G.activePlayer === 0) {
+    G.activePlayer = 1;
+    G.players[1].cart = [];
+    renderShop();
+    flashMessage("P1 done! Now P2's turn to shop.");
+    showScreen('screen-shop');
+  } else {
+    // Both players done — start battle
+    startBattle();
+  }
+}
+
+// ============================================================
+// BATTLE
+// ============================================================
+
+function startBattle() {
+  const p1 = G.players[0];
+  const p2 = G.players[1];
+
+  // Deep copy battle monkeys
+  const m1 = JSON.parse(JSON.stringify(p1.monkeys[p1.selectedMonkeyIdx]));
+  const m2 = JSON.parse(JSON.stringify(p2.monkeys[p2.selectedMonkeyIdx]));
+
+  // Apply banana_atk spell — Newt PP: 1.25x ATK for every banana held
+  p1.monkeys[p1.selectedMonkeyIdx].spells.forEach(s => {
+    if (s.effect.type === 'banana_atk') m1.atk = Math.floor(m1.atk * (1 + 0.25 * p1.bananas));
+  });
+  p2.monkeys[p2.selectedMonkeyIdx].spells.forEach(s => {
+    if (s.effect.type === 'banana_atk') m2.atk = Math.floor(m2.atk * (1 + 0.25 * p2.bananas));
+  });
+
+  // Deep copy battle potions
+  const bp1 = JSON.parse(JSON.stringify(p1.battlePotions));
+  const bp2 = JSON.parse(JSON.stringify(p2.battlePotions));
+
+  G.battle = {
+    p1Mon: m1,
+    p2Mon: m2,
+    p1Potions: bp1,
+    p2Potions: bp2,
+    fieldEffects: [],
+    log: [],
+    turn: 1,
+    phase: 'p1-potion', // p1-potion → p2-potion → resolve → check → p1-potion...
+    p1UsedPotion: null,
+    p2UsedPotion: null,
+    p1NegateAtk: false,
+    p2NegateAtk: false,
+    p1DmgReduction: 0,
+    p2DmgReduction: 0,
+    p1DeathBuffer: false,
+    p2DeathBuffer: false,
+    p1BoostNextAtk: 0,
+    p2BoostNextAtk: 0,
+    healField: { active: false, value: 0, turnsLeft: 0, target: '' }
+  };
+
+  document.getElementById('turn-counter').textContent = 1;
+  document.getElementById('battle-level-display').textContent = `1-${G.level}`;
+
+  renderBattleScreen();
+  showScreen('screen-battle');
+  addLog('system', `⚔️ Battle begins! ${m1.name} (${m1.spd} SPD) vs ${m2.name} (${m2.spd} SPD)`);
+  renderBattleScreen();
+}
+
+function renderBattleScreen() {
+  const b = G.battle;
+  renderBattleMonkey('battle-p1-display', b.p1Mon, 'P1', G.players[0]);
+  renderBattleMonkey('battle-p2-display', b.p2Mon, 'P2', G.players[1]);
+  renderFieldEffects();
+  renderPotionHand();
+  renderBattleLog();
+}
+
+function renderBattleMonkey(elId, mon, label, player) {
+  const el = document.getElementById(elId);
+  const hpPct = (mon.hp / mon.maxHp) * 100;
+  const hpClass = hpPct > 50 ? '' : hpPct > 25 ? 'low' : 'critical';
+  const statusHtml = mon.statusEffects ? mon.statusEffects.map(se =>
+    `<span class="status-badge status-${se.type}">${se.type === 'burn' ? '🔥 Burn' : '⚠️ '+se.type}</span>`
+  ).join('') : '';
+
+  el.innerHTML = `
+    <span class="battle-monkey-icon">${mon.icon}</span>
+    <div class="battle-monkey-name">${label}: ${mon.name}</div>
+    <div class="battle-monkey-stats">
+      <div class="battle-stat hp-stat">❤️ ${mon.hp}/${mon.maxHp}</div>
+      <div class="battle-stat atk-stat">⚔️ ${mon.atk}</div>
+      <div class="battle-stat def-stat">🛡 ${mon.def}</div>
+      <div class="battle-stat spd-stat">💨 ${mon.spd}</div>
+    </div>
+    <div class="hp-bar-large"><div class="hp-fill ${hpClass}" style="width:${hpPct}%"></div></div>
+    ${statusHtml ? `<div class="status-effects" style="justify-content:center;margin-top:6px">${statusHtml}</div>` : ''}`;
+}
+
+function renderFieldEffects() {
+  const b = G.battle;
+  const card = document.getElementById('field-effects-card');
+  const list = document.getElementById('field-effects-list');
+  if (b.fieldEffects.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  list.innerHTML = b.fieldEffects.map(fe =>
+    `<div class="field-effect splash-effect">${fe.icon} ${fe.name} (${fe.turnsLeft} turn${fe.turnsLeft !== 1 ? 's' : ''})</div>`
+  ).join('');
+}
+
+function renderPotionHand() {
+  const b = G.battle;
+  const hand = document.getElementById('potion-hand');
+  const title = document.getElementById('potion-choice-title');
+
+  if (b.phase === 'done') {
+    hand.innerHTML = '';
+    title.textContent = 'Battle over!';
+    return;
+  }
+
+  const isP1Turn = b.phase === 'p1-potion';
+  const player = isP1Turn ? G.players[0] : G.players[1];
+  const potions = isP1Turn ? b.p1Potions : b.p2Potions;
+
+  title.textContent = `${player.name}'s turn — play a potion or skip`;
+  hand.innerHTML = '';
+
+  potions.filter(p => !p.used).forEach(pot => {
+    const typeClass = pot.type === 'consume' ? 'consume-potion' : 'splash-potion';
+    const typeLabel = pot.type === 'consume' ? 'consume-label' : 'splash-label';
+    const typeText = pot.type === 'consume' ? 'Consumable' : 'Splash';
+    hand.innerHTML += `
+      <div class="potion-card ${typeClass}" onclick="playPotion('${pot.id}')">
+        <div class="potion-card-icon">${pot.icon}</div>
+        <div class="potion-card-name">${pot.name}</div>
+        <div class="potion-card-type ${typeLabel}">${typeText} · Lv${pot.level}</div>
+        <div class="potion-card-effect">${pot.effect.desc}</div>
+      </div>`;
+  });
+
+  // Skip button
+  hand.innerHTML += `
+    <div class="skip-btn-wrap">
+      <button class="btn btn-secondary" onclick="skipPotion()">⏭ Skip</button>
+    </div>`;
+}
+
+function playPotion(potId) {
+  const b = G.battle;
+  const isP1 = b.phase === 'p1-potion';
+  const potions = isP1 ? b.p1Potions : b.p2Potions;
+  const pot = potions.find(p => p.id === potId);
+  if (!pot) return;
+  pot.used = true;
+
+  const playerName = isP1 ? 'P1' : 'P2';
+  const myMon = isP1 ? b.p1Mon : b.p2Mon;
+  const enemyMon = isP1 ? b.p2Mon : b.p1Mon;
+
+  addLog('info', `${playerName} plays ${pot.icon} ${pot.name}!`);
+
+  const eff = pot.effect;
+
+  if (pot.type === 'consume') {
+    if (eff.type === 'heal') {
+      const healed = Math.min(eff.value, myMon.maxHp - myMon.hp);
+      myMon.hp += healed;
+      addLog('heal', `${myMon.name} heals ${healed}hp (${myMon.hp}/${myMon.maxHp})`);
+    }
+    if (eff.type === 'boost_next_atk') {
+      if (isP1) b.p1BoostNextAtk += eff.value;
+      else b.p2BoostNextAtk += eff.value;
+      addLog('info', `${myMon.name}'s next attack +${eff.value} dmg!`);
+    }
+    if (eff.type === 'banana_dmg') {
+      const bananas = G.players[isP1 ? 0 : 1].bananas;
+      if (isP1) b.p1BoostNextAtk += bananas;
+      else b.p2BoostNextAtk += bananas;
+      addLog('info', `${myMon.name} channels banana power! +${bananas} dmg!`);
+    }
+    if (eff.type === 'dmg_reduction') {
+      if (isP1) b.p1DmgReduction = eff.value;
+      else b.p2DmgReduction = eff.value;
+      addLog('info', `${myMon.name} braces! ${eff.value}% damage reduction!`);
+    }
+  }
+
+  if (pot.type === 'splash') {
+    if (eff.type === 'negate_atk') {
+      const hit = Math.random() * 100 < eff.chance;
+      if (hit) {
+        if (isP1) b.p2NegateAtk = true;
+        else b.p1NegateAtk = true;
+        addLog('status', `${enemyMon.name}'s attack negated this turn!`);
+      } else {
+        addLog('info', `Negate splash missed!`);
+      }
+      b.fieldEffects.push({ icon: pot.icon, name: pot.name, turnsLeft: 1, effect: eff });
+    }
+    if (eff.type === 'heal_field') {
+      b.healField = { active: true, value: eff.value, turnsLeft: eff.turns, target: isP1 ? 'p1' : 'p2' };
+      b.fieldEffects.push({ icon: pot.icon, name: pot.name, turnsLeft: eff.turns, effect: eff });
+      addLog('heal', `Banana Peel splash lands! ${myMon.name} heals ${eff.value}hp/turn for ${eff.turns} turns.`);
+    }
+    if (eff.type === 'hazard_dmg') {
+      b.fieldEffects.push({ icon: pot.icon, name: 'Bones Hazard', turnsLeft: 1, effect: eff, target: isP1 ? 'p2' : 'p1' });
+      addLog('status', `Bones scattered! 60% chance to deal 2 dmg to attacker!`);
+    }
+    if (eff.type === 'newt_splash') {
+      const bananas = G.players[isP1 ? 0 : 1].bananas;
+      const chance = Math.min(100, (bananas + 1) * 2);
+      const hit = Math.random() * 100 < chance;
+      if (hit) {
+        enemyMon.hp = Math.max(0, enemyMon.hp - 7);
+        addLog('dmg', `Newt splash! ${chance}% chance hit — ${enemyMon.name} takes 7 dmg! (${enemyMon.hp}/${enemyMon.maxHp} HP)`);
+      } else {
+        addLog('info', `Newt splash fizzles! (${chance}% chance, missed)`);
+      }
+      b.fieldEffects.push({ icon: pot.icon, name: 'Newt Splash', turnsLeft: 1, effect: eff });
+    }
+    if (eff.type === 'death_buffer') {
+      if (isP1) b.p1DeathBuffer = true;
+      else b.p2DeathBuffer = true;
+      b.fieldEffects.push({ icon: pot.icon, name: 'Death Buffer', turnsLeft: 1, effect: eff });
+      addLog('info', `${myMon.name} has a death buffer!`);
+    }
+  }
+
+  advanceBattlePhase();
+}
+
+function skipPotion() {
+  const b = G.battle;
+  addLog('system', `${b.phase === 'p1-potion' ? 'P1' : 'P2'} skips potion.`);
+  advanceBattlePhase();
+}
+
+function advanceBattlePhase() {
+  const b = G.battle;
+  if (b.phase === 'p1-potion') {
+    b.phase = 'p2-potion';
+    renderBattleScreen();
+  } else if (b.phase === 'p2-potion') {
+    resolveAttacks();
+  }
+}
+
+function resolveAttacks() {
+  const b = G.battle;
+  addLog('system', `--- Turn ${b.turn} attacks ---`);
+
+  // Heal field
+  if (b.healField.active && b.healField.turnsLeft > 0) {
+    const target = b.healField.target === 'p1' ? b.p1Mon : b.p2Mon;
+    const healed = Math.min(b.healField.value, target.maxHp - target.hp);
+    target.hp += healed;
+    b.healField.turnsLeft--;
+    if (b.healField.turnsLeft <= 0) b.healField.active = false;
+    addLog('heal', `Field heals ${target.name} for ${healed}hp!`);
+  }
+
+  // Determine attack order by speed
+  const p1First = b.p1Mon.spd >= b.p2Mon.spd;
+  const attackOrder = p1First ? ['p1','p2'] : ['p2','p1'];
+
+  let p1Dead = false, p2Dead = false;
+
+  for (const attacker of attackOrder) {
+    const isP1 = attacker === 'p1';
+    const aMon = isP1 ? b.p1Mon : b.p2Mon;
+    const dMon = isP1 ? b.p2Mon : b.p1Mon;
+    const aNegate = isP1 ? b.p1NegateAtk : b.p2NegateAtk;
+    const dNegate = isP1 ? b.p2NegateAtk : b.p1NegateAtk;
+    const boost = isP1 ? b.p1BoostNextAtk : b.p2BoostNextAtk;
+    const dmgRedPct = isP1 ? b.p2DmgReduction : b.p1DmgReduction;
+    const deathBuf = isP1 ? b.p2DeathBuffer : b.p1DeathBuffer;
+
+    if (dNegate) {
+      addLog('status', `${aMon.name}'s attack was negated!`);
+      if (isP1) b.p1NegateAtk = false; else b.p2NegateAtk = false;
+      continue;
+    }
+
+    let rawDmg = aMon.atk + boost;
+    if (isP1) b.p1BoostNextAtk = 0; else b.p2BoostNextAtk = 0;
+
+    // Apply bones hazard
+    const bonesHazard = b.fieldEffects.find(fe => fe.effect.type === 'hazard_dmg' && fe.target === attacker);
+    if (bonesHazard) {
+      if (Math.random() * 100 < bonesHazard.effect.chance) {
+        aMon.hp = Math.max(0, aMon.hp - bonesHazard.effect.value);
+        addLog('dmg', `Bones hazard deals ${bonesHazard.effect.value} dmg to ${aMon.name}!`);
+      }
+    }
+
+    // DEF reduction, min 1
+    let actualDmg = Math.max(1, rawDmg - dMon.def);
+
+    // % damage reduction
+    if (dmgRedPct > 0) {
+      actualDmg = Math.max(1, Math.floor(actualDmg * (1 - dmgRedPct/100)));
+      if (isP1) b.p2DmgReduction = 0; else b.p1DmgReduction = 0;
+    }
+
+    // Crit check (base 1%)
+    const isCrit = Math.random() < 0.01;
+    if (isCrit) { actualDmg *= 2; addLog('status', `CRITICAL HIT! 💥`); }
+
+    // Death buffer
+    if (deathBuf && dMon.hp - actualDmg <= 0) {
+      addLog('info', `Death buffer activates! ${dMon.name} survives with 1hp!`);
+      dMon.hp = 1;
+      if (isP1) b.p2DeathBuffer = false; else b.p1DeathBuffer = false;
+    } else {
+      dMon.hp = Math.max(0, dMon.hp - actualDmg);
+      addLog('dmg', `${aMon.name} hits ${dMon.name} for ${actualDmg} dmg! (${dMon.hp}/${dMon.maxHp} HP remaining)`);
+    }
+
+    // Status effect ticks
+    if (dMon.statusEffects) {
+      dMon.statusEffects = dMon.statusEffects.filter(se => {
+        if (se.type === 'burn') {
+          dMon.hp = Math.max(0, dMon.hp - 1);
+          addLog('status', `🔥 Burn ticks! ${dMon.name} takes 1 dmg`);
+          se.turns--;
+          return se.turns > 0;
+        }
+        return true;
+      });
+    }
+
+    if (dMon.hp <= 0) {
+      if (isP1) p2Dead = true; else p1Dead = true;
+    }
+  }
+
+  // Decay field effects
+  b.fieldEffects = b.fieldEffects.filter(fe => {
+    fe.turnsLeft--;
+    return fe.turnsLeft > 0;
+  });
+
+  b.turn++;
+  document.getElementById('turn-counter').textContent = b.turn;
+
+  // Check win condition
+  if (p1Dead || p2Dead) {
+    endBattle(p1Dead, p2Dead);
+    return;
+  }
+
+  // Next turn
+  b.phase = 'p1-potion';
+  b.p1NegateAtk = false;
+  b.p2NegateAtk = false;
+
+  renderBattleScreen();
+}
+
+function endBattle(p1Dead, p2Dead) {
+  const b = G.battle;
+  b.phase = 'done';
+  renderBattleScreen();
+
+  let winnerId, loserId;
+  if (p1Dead && p2Dead) {
+    // Tie — check who has more HP (both at 0, so use SPD as tiebreak)
+    winnerId = b.p1Mon.spd >= b.p2Mon.spd ? 0 : 1;
+    loserId = 1 - winnerId;
+    addLog('system', `Both monkeys fall! ${G.players[winnerId].name} wins on SPD tiebreak!`);
+  } else if (p1Dead) {
+    winnerId = 1; loserId = 0;
+    addLog('system', `${b.p1Mon.name} has fallen! P2 wins!`);
+  } else {
+    winnerId = 0; loserId = 1;
+    addLog('system', `${b.p2Mon.name} has fallen! P1 wins!`);
+  }
+
+  // Payout
+  G.players[winnerId].bananas += 10;
+  G.players[loserId].bananas += 5;
+
+  setTimeout(() => showResult(winnerId, loserId), 800);
+}
+
+function showResult(winnerId, loserId) {
+  const winner = G.players[winnerId];
+  const loser = G.players[loserId];
+
+  document.getElementById('result-icon').textContent = winnerId === 0 ? '🎉' : '🏆';
+  document.getElementById('result-title').textContent = `${winner.name} Wins!`;
+  document.getElementById('result-sub').textContent = `+10🍌 earned · ${loser.name} gets +5🍌`;
+  document.getElementById('result-details').innerHTML = `
+    ${winner.name}: ${winner.bananas}🍌 total<br>
+    ${loser.name}: ${loser.bananas}🍌 total<br>
+    Level 1-${G.level} complete!`;
+
+  const btn = document.getElementById('result-continue-btn');
+  if (G.level >= 3) {
+    btn.textContent = 'World 1 Complete! Pick a Monkey →';
+  } else {
+    btn.textContent = `Next Level (1-${G.level+1}) →`;
+  }
+
+  showScreen('screen-result');
+}
+
+function continueAfterBattle() {
+  // Reset battle potions
+  G.players.forEach(p => {
+    // Return consume flasks
+    p.battlePotions.forEach(pot => { if (pot.type === 'consume') p.inventory.consume_flask++; });
+    // Remove used battle potions from brewedPotions
+    p.battlePotions.forEach(pot => {
+      const idx = p.brewedPotions.findIndex(bp => bp.id === pot.id);
+      if (idx >= 0) p.brewedPotions.splice(idx, 1);
+    });
+    p.battlePotions = [];
+    p.selectedMonkeyIdx = 0;
+  });
+
+  if (G.level >= 3) {
+    showMonkeyPickup();
+  } else {
+    G.level++;
+    G.activePlayer = 0;
+    renderShop();
+    showScreen('screen-shop');
+  }
+}
+
+// ============================================================
+// MONKEY PICKUP
+// ============================================================
+
+function showMonkeyPickup() {
+  const newMon = WORLD_1_MONKEYS[2]; // Brute monkey as world 1 reward
+  document.getElementById('pickup-icon').textContent = newMon.icon;
+  document.getElementById('pickup-name').textContent = newMon.name;
+  document.getElementById('pickup-desc').textContent = newMon.desc;
+
+  const actions = document.getElementById('pickup-actions');
+  actions.innerHTML = '';
+
+  // Each player can pick up or not
+  G.players.forEach((p, idx) => {
+    const hasRoom = p.monkeys.length < 3;
+    actions.innerHTML += `
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;min-width:160px;text-align:left">
+        <div style="font-family:Fredoka,sans-serif;font-size:15px;margin-bottom:8px">${p.name}</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${p.monkeys.length}/3 monkeys</div>
+        ${hasRoom
+          ? `<button class="btn btn-success btn-sm" onclick="addMonkey(${idx})">Add ${newMon.icon}</button>`
+          : `<button class="btn btn-secondary btn-sm" disabled>Team full</button>`}
+      </div>`;
+  });
+
+  actions.innerHTML += `<button class="btn btn-primary" onclick="finishWorld()">Finish World 1 →</button>`;
+
+  showScreen('screen-monkey-pickup');
+}
+
+function addMonkey(playerIdx) {
+  const p = G.players[playerIdx];
+  if (p.monkeys.length >= 3) { flashMessage('Team full!'); return; }
+  p.monkeys.push(makeMonkey(WORLD_1_MONKEYS[2], playerIdx));
+  flashMessage(`${G.players[playerIdx].name} got a ${WORLD_1_MONKEYS[2].name}!`);
+  showMonkeyPickup();
+}
+
+function finishWorld() {
+  flashMessage('World 1 Complete! 🎉 (More worlds coming soon)');
+  setTimeout(() => {
+    initGame();
+    showScreen('screen-title');
+  }, 2000);
+}
+
+// ============================================================
+// BATTLE LOG
+// ============================================================
+
+function addLog(type, msg) {
+  G.battle.log.push({ type, msg });
+}
+
+function renderBattleLog() {
+  const log = document.getElementById('battle-log');
+  log.innerHTML = G.battle.log.map(entry =>
+    `<div class="log-entry log-${entry.type}">${entry.msg}</div>`
+  ).join('');
+  log.scrollTop = log.scrollHeight;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+</script>
+</body>
+</html>

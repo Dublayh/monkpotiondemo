@@ -302,7 +302,7 @@
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 12px 14px;
-    max-height: 160px;
+    max-height: 320px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -1647,7 +1647,8 @@ function startBattle() {
     playerTwoDeathBuffer: false,
     playerOneBoostNextAtk: 0,
     playerTwoBoostNextAtk: 0,
-    healField: { active: false, value: 0, turnsLeft: 0, target: '' }
+    healField: { active: false, value: 0, turnsLeft: 0, target: '' },
+    pendingLogs: []
   };
 
   document.getElementById('turn-counter').textContent = 1;
@@ -1677,7 +1678,7 @@ function renderBattleMonkey(elId, mon, label, player) {
   ).join('') : '';
 
   el.innerHTML = `
-    <span class="battle-monkey-icon">${mon.icon}</span>
+    <img src="MonkeyWizard.gif" style="width:120px;height:120px;object-fit:contain;image-rendering:pixelated;${label === 'P2' ? 'transform:scaleX(-1);' : ''}" alt="${mon.name}"/>
     <div class="battle-monkey-name">${label}: ${mon.name}</div>
     <div class="battle-monkey-stats">
       <div class="battle-stat hp-stat">❤️ ${mon.hp}/${mon.maxHp}</div>
@@ -1841,8 +1842,9 @@ function advanceBattlePhase() {
 
 function resolveAttacks() {
   const b = G.battle;
+  b.phase = 'resolving';
   addLog('system', `━━━ Turn ${b.turn} ━━━ ${b.playerOneMon.spd >= b.playerTwoMon.spd ? b.playerOneMon.name+' attacks first (higher SPD)' : b.playerTwoMon.name+' attacks first (higher SPD)'}`);
-
+  flushPendingLogs();
   // Heal field
   if (b.healField.active && b.healField.turnsLeft > 0) {
     const target = b.healField.target === 'playerOne' ? b.playerOneMon : b.playerTwoMon;
@@ -2000,7 +2002,15 @@ function endBattle(playerOneDead, playerTwoDead) {
   G.players[winnerId].bananas += 10;
   G.players[loserId].bananas += 5;
 
-  setTimeout(() => showResult(winnerId, loserId), 800);
+  renderBattleLog();
+
+  // Show advance button in log instead of auto-advancing
+  const log = document.getElementById('battle-log');
+  const btn = document.createElement('div');
+  btn.style.cssText = 'padding:8px 0 2px;';
+  btn.innerHTML = `<button class="btn btn-primary" style="width:100%" onclick="showResult(${winnerId}, ${loserId})">See Results →</button>`;
+  log.appendChild(btn);
+  log.scrollTop = log.scrollHeight;
 }
 
 function showResult(winnerId, loserId) {
@@ -2026,11 +2036,8 @@ function showResult(winnerId, loserId) {
 }
 
 function continueAfterBattle() {
-  // Reset battle potions
   G.players.forEach(p => {
-    // Return consume flasks
-    p.battlePotions.forEach(pot => { if (pot.type === 'consume') p.inventory.consume_flask++; });
-    // Remove used battle potions from brewedPotions
+    // Remove all battle potions from brewedPotions (battle is over)
     p.battlePotions.forEach(pot => {
       const idx = p.brewedPotions.findIndex(bp => bp.id === pot.id);
       if (idx >= 0) p.brewedPotions.splice(idx, 1);
@@ -2103,7 +2110,18 @@ function finishWorld() {
 // ============================================================
 
 function addLog(type, msg) {
-  G.battle.log.push({ type, msg });
+  const b = G.battle;
+  if (b.phase === 'playerOneTurn' || b.phase === 'playerTwoTurn') {
+    b.pendingLogs.push({ type, msg });
+  } else {
+    b.log.push({ type, msg });
+  }
+}
+
+function flushPendingLogs() {
+  const b = G.battle;
+  b.pendingLogs.forEach(entry => b.log.push(entry));
+  b.pendingLogs = [];
 }
 
 function renderBattleLog() {

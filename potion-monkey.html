@@ -1696,7 +1696,7 @@ function renderFieldEffects() {
   if (b.fieldEffects.length === 0) { card.style.display = 'none'; return; }
   card.style.display = 'block';
   list.innerHTML = b.fieldEffects.map(fe =>
-    `<div class="field-effect splash-effect">${fe.icon} ${fe.name} (${fe.turnsLeft} turn${fe.turnsLeft !== 1 ? 's' : ''})</div>`
+    `<div class="field-effect splash-effect">${fe.icon} ${fe.name} (${fe.turnsLeft === Infinity ? 'permanent' : fe.turnsLeft + ' turn' + (fe.turnsLeft !== 1 ? 's' : '')})</div>`
   ).join('');
 }
 
@@ -1784,11 +1784,11 @@ function playPotion(potId) {
       if (hit) {
         if (isPlayerOne) b.playerTwoNegateAtk = true;
         else b.playerOneNegateAtk = true;
+        b.fieldEffects.push({ icon: pot.icon, name: pot.name, turnsLeft: eff.turns, effect: eff, target: isPlayerOne ? 'playerTwo' : 'playerOne' });
         addLog('status', `🕷️ Spider Eye SP — 50% roll succeeded! ${enemyMon.name}'s attack is negated this turn`);
       } else {
         addLog('info', `🕷️ Spider Eye SP — 50% roll failed, ${enemyMon.name}'s attack stands`);
       }
-      b.fieldEffects.push({ icon: pot.icon, name: pot.name, turnsLeft: 1, effect: eff });
     }
     if (eff.type === 'bananaPeelSplash') {
       b.healField = { active: true, value: eff.value, turnsLeft: eff.turns, target: isPlayerOne ? 'playerOne' : 'playerTwo' };
@@ -1796,8 +1796,8 @@ function playPotion(potId) {
       addLog('heal', `🍌 Banana Peel SP — peel lands on field! ${myMon.name} heals ${eff.value}hp/turn for ${eff.turns} turns`);
     }
     if (eff.type === 'bonesSplash') {
-      b.fieldEffects.push({ icon: pot.icon, name: 'Bones Hazard', turnsLeft: 1, effect: eff, target: isPlayerOne ? 'playerTwo' : 'playerOne' });
-      addLog('status', `🦴 Bones SP — bones scattered on field! 60% chance to deal 2 dmg to ${enemyMon.name} when they attack`);
+      b.fieldEffects.push({ icon: pot.icon, name: 'Bones Hazard', turnsLeft: Infinity, effect: eff, target: isPlayerOne ? 'playerTwo' : 'playerOne' });
+      addLog('status', `🦴 Bones SP — bones scattered on field! 60% chance to deal 2 dmg to ${enemyMon.name} when they attack (permanent)`);
     }
     if (eff.type === 'newtSplash') {
       const bananas = G.players[isPlayerOne ? 0 : 1].bananas;
@@ -1857,21 +1857,34 @@ function resolveAttacks() {
   const playerOneAttacksFirst = b.playerOneMon.spd >= b.playerTwoMon.spd;
   const attackOrder = playerOneAttacksFirst ? ['playerOne','playerTwo'] : ['playerTwo','playerOne'];
 
-  let p1Dead = false, p2Dead = false;
+  let playerOneDead = false, playerTwoDead = false;
 
   for (const attacker of attackOrder) {
     const isPlayerOne = attacker === 'playerOne';
     const aMon = isPlayerOne ? b.playerOneMon : b.playerTwoMon;
     const dMon = isPlayerOne ? b.playerTwoMon : b.playerOneMon;
-    const aNegate = isPlayerOne ? b.playerOneNegateAtk : b.playerTwoNegateAtk;
-    const dNegate = isPlayerOne ? b.playerTwoNegateAtk : b.playerOneNegateAtk;
-    const boost = isPlayerOne ? b.playerOneBoostNextAtk : b.playerTwoBoostNextAtk;
+    const dNegate = isPlayerOne ? b.playerOneNegateAtk : b.playerTwoNegateAtk;
+    let boost = isPlayerOne ? b.playerOneBoostNextAtk : b.playerTwoBoostNextAtk;
     const dmgRedPct = isPlayerOne ? b.playerTwoDmgReduction : b.playerOneDmgReduction;
     const deathBuf = isPlayerOne ? b.playerTwoDeathBuffer : b.playerOneDeathBuffer;
 
+    // Check Bones Spell — 33% chance to nullify the attacker's battle potion boost this turn
+    const bonesSpell = dMon.spells && dMon.spells.find(s => s.effect.type === 'bonesSpell');
+    if (bonesSpell && boost > 0) {
+      const nullifyRoll = Math.random() * 100;
+      if (nullifyRoll < bonesSpell.effect.chance) {
+        boost = 0;
+        if (isPlayerOne) b.playerOneBoostNextAtk = 0; else b.playerTwoBoostNextAtk = 0;
+        addLog('status', `🦴 Bones Spell — ${dMon.name}'s exoskeleton nullifies ${aMon.name}'s battle potion boost! (33% roll succeeded)`);
+      } else {
+        addLog('info', `🦴 Bones Spell — 33% nullify roll failed, ${aMon.name}'s boost stands`);
+      }
+    }
+
     if (dNegate) {
       addLog('status', `🕷️ Spider Eye SP — ${aMon.name}'s attack negated, no damage dealt`);
-      if (isPlayerOne) b.playerOneNegateAtk = false; else b.playerTwoNegateAtk = false;
+      if (isPlayerOne) { b.playerOneNegateAtk = false; b.playerOneBoostNextAtk = 0; }
+      else { b.playerTwoNegateAtk = false; b.playerTwoBoostNextAtk = 0; }
       continue;
     }
 
@@ -1932,22 +1945,28 @@ function resolveAttacks() {
 
     if (dMon.hp <= 0) {
       addLog('dmg', `💀 ${dMon.name} has fallen!`);
-      if (isPlayerOne) p2Dead = true; else p1Dead = true;
+      if (isPlayerOne) playerTwoDead = true; else playerOneDead = true;
     }
   }
 
-  // Decay field effects
+  // Decay field effects and log what's still active
   b.fieldEffects = b.fieldEffects.filter(fe => {
+    if (fe.turnsLeft === Infinity) return true;
     fe.turnsLeft--;
-    return fe.turnsLeft > 0;
+    if (fe.turnsLeft > 0) {
+      addLog('system', `🌀 ${fe.name} still active — ${fe.turnsLeft} turn${fe.turnsLeft !== 1 ? 's' : ''} remaining`);
+      return true;
+    }
+    addLog('system', `🌀 ${fe.name} fades from the field`);
+    return false;
   });
 
   b.turn++;
   document.getElementById('turn-counter').textContent = b.turn;
 
   // Check win condition
-  if (p1Dead || p2Dead) {
-    endBattle(p1Dead, p2Dead);
+  if (playerOneDead || playerTwoDead) {
+    endBattle(playerOneDead, playerTwoDead);
     return;
   }
 
@@ -1959,23 +1978,22 @@ function resolveAttacks() {
   renderBattleScreen();
 }
 
-function endBattle(p1Dead, p2Dead) {
+function endBattle(playerOneDead, playerTwoDead) {
   const b = G.battle;
   b.phase = 'done';
   renderBattleScreen();
 
   let winnerId, loserId;
-  if (p1Dead && p2Dead) {
-    // Tie — check who has more HP (both at 0, so use SPD as tiebreak)
+  if (playerOneDead && playerTwoDead) {
     winnerId = b.playerOneMon.spd >= b.playerTwoMon.spd ? 0 : 1;
     loserId = 1 - winnerId;
     addLog('system', `Both monkeys fall! ${G.players[winnerId].name} wins on SPD tiebreak!`);
-  } else if (p1Dead) {
+  } else if (playerOneDead) {
     winnerId = 1; loserId = 0;
-    addLog('system', `${b.playerOneMon.name} has fallen! P2 wins!`);
+    addLog('system', `${b.playerOneMon.name} has fallen! ${G.players[1].name} wins!`);
   } else {
     winnerId = 0; loserId = 1;
-    addLog('system', `${b.playerTwoMon.name} has fallen! P1 wins!`);
+    addLog('system', `${b.playerTwoMon.name} has fallen! ${G.players[0].name} wins!`);
   }
 
   // Payout

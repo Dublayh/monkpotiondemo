@@ -804,9 +804,9 @@
   <div class="main">
     <!-- Arena -->
     <div class="battle-arena">
-      <div class="battle-monkey" id="battle-p1-display"></div>
+      <div class="battle-monkey" id="battle-playerOne-display"></div>
       <div class="vs-divider">VS</div>
-      <div class="battle-monkey" id="battle-p2-display"></div>
+      <div class="battle-monkey" id="battle-playerTwo-display"></div>
     </div>
 
     <!-- Field effects -->
@@ -869,45 +869,45 @@ const INGREDIENTS = {
     id: 'banana_peel', name: 'Banana Peel', icon: '🍌', cost: 2,
     desc: 'PP: +1-3 max HP · SP: Heal 1-3hp, lasts 2 turns · CP: Replenish 3hp up to max',
     effects: {
-      spell: (lv) => ({ type: 'hp_boost', value: lv, desc: `+${lv} max HP` }),
-      splash: (lv) => ({ type: 'heal_field', value: lv, turns: 2, desc: `Heal ${lv}hp/turn for 2 turns` }),
-      consume: (lv) => ({ type: 'heal', value: 3, desc: 'Replenish 3hp up to max HP' })
+      spell: (lv) => ({ type: 'bananaPeelSpell', value: lv, desc: `+${lv} max HP` }),
+      splash: (lv) => ({ type: 'bananaPeelSplash', value: lv, turns: 2, desc: `Heal ${lv}hp/turn for 2 turns` }),
+      consume: (lv) => ({ type: 'bananaPeelConsume', value: 3, desc: 'Replenish 3hp up to max HP' })
     }
   },
   spider_eye: {
     id: 'spider_eye', name: 'Spider Eye', icon: '🕷️', cost: 3,
     desc: 'PP: +1 ATK · SP: 50% negate enemy ATK (1 turn) · CP: +4-6 next ATK',
     effects: {
-      spell: (lv) => ({ type: 'atk_boost', value: 1, desc: '+1 ATK' }),
-      splash: (lv) => ({ type: 'negate_atk', chance: 50, turns: 1, desc: '50% negate enemy ATK (1 turn)' }),
-      consume: (lv) => ({ type: 'boost_next_atk', value: [4,5,6][lv-1], desc: `+${[4,5,6][lv-1]} to next attack` })
+      spell: (lv) => ({ type: 'spiderEyeSpell', value: 1, desc: '+1 ATK' }),
+      splash: (lv) => ({ type: 'spiderEyeSplash', chance: 50, turns: 1, desc: '50% negate enemy ATK (1 turn)' }),
+      consume: (lv) => ({ type: 'spiderEyeConsume', value: [4,5,6][lv-1], desc: `+${[4,5,6][lv-1]} to next attack` })
     }
   },
   newt: {
     id: 'newt', name: 'Newt', icon: '🦎', cost: 5,
     desc: 'PP: 1.25x ATK per 🍌 held · SP: ($+1) 2% chance to do 7 dmg · CP: +1 dmg per 🍌 held',
     effects: {
-      spell: (lv) => ({ type: 'banana_atk', desc: '1.25x ATK per 🍌 held at battle start' }),
-      splash: (lv) => ({ type: 'newt_splash', desc: '(🍌+1) × 2% chance to deal 7 dmg to opponent' }),
-      consume: (lv) => ({ type: 'banana_dmg', desc: '+1 dmg per 🍌 held this attack' })
+      spell: (lv) => ({ type: 'newtSpell', desc: '1.25x ATK per 🍌 held at battle start' }),
+      splash: (lv) => ({ type: 'newtSplash', desc: '(🍌+1) × 2% chance to deal 7 dmg to opponent' }),
+      consume: (lv) => ({ type: 'newtConsume', desc: '+1 dmg per 🍌 held this attack' })
     }
   },
   bones: {
     id: 'bones', name: 'Bones', icon: '🦴', cost: 4,
     desc: 'PP: 33% nullify enemy battle potion · SP: 60% deal 2 dmg to attacker · CP: 33-50% dmg nullification',
     effects: {
-      spell: (lv) => ({ type: 'nullify_potion', chance: 33, desc: '33% nullify enemy battle potion' }),
-      splash: (lv) => ({ type: 'hazard_dmg', chance: 60, value: 2, turns: 1, desc: '60% deal 2 dmg to attacker' }),
-      consume: (lv) => ({ type: 'dmg_reduction', value: [33,42,50][lv-1], desc: `${[33,42,50][lv-1]}% damage nullification` })
+      spell: (lv) => ({ type: 'bonesSpell', chance: 33, desc: '33% nullify enemy battle potion' }),
+      splash: (lv) => ({ type: 'bonesSplash', chance: 60, value: 2, turns: 1, desc: '60% deal 2 dmg to attacker' }),
+      consume: (lv) => ({ type: 'bonesConsume', value: [33,42,50][lv-1], desc: `${[33,42,50][lv-1]}% damage nullification` })
     }
   },
   spirit_water: {
     id: 'spirit_water', name: 'Spirit Water', icon: '💧', cost: 5,
     desc: 'PP: Boost next spell in rotation by 10% · SP: Boost next SP by 25% · CP: Boost next CP by 25%',
     effects: {
-      spell: (lv) => ({ type: 'boost_next_spell', value: 10, desc: 'Boost next spell in rotation by 10%' }),
-      splash: (lv) => ({ type: 'boost_next_splash', value: 25, desc: 'Boost next splash by 25%' }),
-      consume: (lv) => ({ type: 'boost_next_consume', value: 25, desc: 'Boost next consumable by 25%' })
+      spell: (lv) => ({ type: 'spiritWaterSpell', value: 10, desc: 'Boost next spell in rotation by 10%' }),
+      splash: (lv) => ({ type: 'spiritWaterSplash', value: 25, desc: 'Boost next splash by 25%' }),
+      consume: (lv) => ({ type: 'spiritWaterConsume', value: 25, desc: 'Boost next consumable by 25%' })
     }
   }
 };
@@ -954,7 +954,7 @@ function initGame() {
     currentPhase: 'shop',
     activePlayer: 0, // 0 = P1, 1 = P2
     shopPrepDone: [false, false],
-    battlePhase: 'p1-potion', // p1-potion, p2-potion, resolve, done
+    battlePhase: 'playerOneTurn', // p1-potion, p2-potion, resolve, done
     turn: 1,
     players: [
       {
@@ -981,8 +981,8 @@ function initGame() {
       }
     ],
     battle: {
-      p1MonkeyIdx: 0,
-      p2MonkeyIdx: 0,
+      playerOneMonkeyIdx: 0,
+      playerTwoMonkeyIdx: 0,
       p1BattleMon: null,
       p2BattleMon: null,
       fieldEffects: [],
@@ -1462,9 +1462,9 @@ function assignSpell(spellId, monkeyIdx) {
 
 function applySpellToMonkey(mon, spell) {
   const eff = spell.effect;
-  if (eff.type === 'hp_boost') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
-  if (eff.type === 'atk_boost') { mon.atk += eff.value; }
-  // banana_atk applied at battle start based on current bananas
+  if (eff.type === 'bananaPeelSpell') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
+  if (eff.type === 'spiderEyeSpell') { mon.atk += eff.value; }
+  // newtSpell applied at battle start based on current bananas
 }
 
 function removeSpell(monkeyIdx, spellIdx) {
@@ -1474,8 +1474,8 @@ function removeSpell(monkeyIdx, spellIdx) {
 
   // Revert spell effect
   const eff = spell.effect;
-  if (eff.type === 'hp_boost') { mon.maxHp -= eff.value; mon.hp = Math.min(mon.hp, mon.maxHp); }
-  if (eff.type === 'atk_boost') { mon.atk -= eff.value; }
+  if (eff.type === 'bananaPeelSpell') { mon.maxHp -= eff.value; mon.hp = Math.min(mon.hp, mon.maxHp); }
+  if (eff.type === 'spiderEyeSpell') { mon.atk -= eff.value; }
 
   mon.spells.splice(spellIdx, 1);
   renderSpellbook();
@@ -1609,44 +1609,44 @@ function finishLoadout() {
 // ============================================================
 
 function startBattle() {
-  const p1 = G.players[0];
-  const p2 = G.players[1];
+  const playerOne = G.players[0];
+  const playerTwo = G.players[1];
 
   // Deep copy battle monkeys
-  const m1 = JSON.parse(JSON.stringify(p1.monkeys[p1.selectedMonkeyIdx]));
-  const m2 = JSON.parse(JSON.stringify(p2.monkeys[p2.selectedMonkeyIdx]));
+  const playerOneMonCopy = JSON.parse(JSON.stringify(playerOne.monkeys[playerOne.selectedMonkeyIdx]));
+  const playerTwoMonCopy = JSON.parse(JSON.stringify(playerTwo.monkeys[playerTwo.selectedMonkeyIdx]));
 
-  // Apply banana_atk spell — Newt PP: 1.25x ATK for every banana held
-  p1.monkeys[p1.selectedMonkeyIdx].spells.forEach(s => {
-    if (s.effect.type === 'banana_atk') m1.atk = Math.floor(m1.atk * (1 + 0.25 * p1.bananas));
+  // Apply newtSpell — Newt PP: 1.25x ATK for every banana held
+  playerOne.monkeys[playerOne.selectedMonkeyIdx].spells.forEach(s => {
+    if (s.effect.type === 'newtSpell') playerOneMonCopy.atk = Math.floor(playerOneMonCopy.atk * (1 + 0.25 * playerOne.bananas));
   });
-  p2.monkeys[p2.selectedMonkeyIdx].spells.forEach(s => {
-    if (s.effect.type === 'banana_atk') m2.atk = Math.floor(m2.atk * (1 + 0.25 * p2.bananas));
+  playerTwo.monkeys[playerTwo.selectedMonkeyIdx].spells.forEach(s => {
+    if (s.effect.type === 'newtSpell') playerTwoMonCopy.atk = Math.floor(playerTwoMonCopy.atk * (1 + 0.25 * playerTwo.bananas));
   });
 
   // Deep copy battle potions
-  const bp1 = JSON.parse(JSON.stringify(p1.battlePotions));
-  const bp2 = JSON.parse(JSON.stringify(p2.battlePotions));
+  const playerOnePotionsCopy = JSON.parse(JSON.stringify(playerOne.battlePotions));
+  const playerTwoPotionsCopy = JSON.parse(JSON.stringify(playerTwo.battlePotions));
 
   G.battle = {
-    p1Mon: m1,
-    p2Mon: m2,
-    p1Potions: bp1,
-    p2Potions: bp2,
+    playerOneMon: playerOneMonCopy,
+    playerTwoMon: playerTwoMonCopy,
+    playerOnePotions: playerOnePotionsCopy,
+    playerTwoPotions: playerTwoPotionsCopy,
     fieldEffects: [],
     log: [],
     turn: 1,
-    phase: 'p1-potion', // p1-potion → p2-potion → resolve → check → p1-potion...
-    p1UsedPotion: null,
-    p2UsedPotion: null,
-    p1NegateAtk: false,
-    p2NegateAtk: false,
-    p1DmgReduction: 0,
-    p2DmgReduction: 0,
-    p1DeathBuffer: false,
-    p2DeathBuffer: false,
-    p1BoostNextAtk: 0,
-    p2BoostNextAtk: 0,
+    phase: 'playerOneTurn', // p1-potion → p2-potion → resolve → check → p1-potion...
+    playerOneUsedPotion: null,
+    playerTwoUsedPotion: null,
+    playerOneNegateAtk: false,
+    playerTwoNegateAtk: false,
+    playerOneDmgReduction: 0,
+    playerTwoDmgReduction: 0,
+    playerOneDeathBuffer: false,
+    playerTwoDeathBuffer: false,
+    playerOneBoostNextAtk: 0,
+    playerTwoBoostNextAtk: 0,
     healField: { active: false, value: 0, turnsLeft: 0, target: '' }
   };
 
@@ -1655,14 +1655,14 @@ function startBattle() {
 
   renderBattleScreen();
   showScreen('screen-battle');
-  addLog('system', `⚔️ Battle begins! ${m1.name} (${m1.spd} SPD) vs ${m2.name} (${m2.spd} SPD)`);
+  addLog('system', `⚔️ Battle begins! ${playerOneMonCopy.name} (${playerOneMonCopy.spd} SPD) vs ${playerTwoMonCopy.name} (${playerTwoMonCopy.spd} SPD)`);
   renderBattleScreen();
 }
 
 function renderBattleScreen() {
   const b = G.battle;
-  renderBattleMonkey('battle-p1-display', b.p1Mon, 'P1', G.players[0]);
-  renderBattleMonkey('battle-p2-display', b.p2Mon, 'P2', G.players[1]);
+  renderBattleMonkey('battle-playerOne-display', b.playerOneMon, 'P1', G.players[0]);
+  renderBattleMonkey('battle-playerTwo-display', b.playerTwoMon, 'P2', G.players[1]);
   renderFieldEffects();
   renderPotionHand();
   renderBattleLog();
@@ -1711,9 +1711,9 @@ function renderPotionHand() {
     return;
   }
 
-  const isP1Turn = b.phase === 'p1-potion';
+  const isP1Turn = b.phase === 'playerOneTurn';
   const player = isP1Turn ? G.players[0] : G.players[1];
-  const potions = isP1Turn ? b.p1Potions : b.p2Potions;
+  const potions = isP1Turn ? b.playerOnePotions : b.playerTwoPotions;
 
   title.textContent = `${player.name}'s turn — play a potion or skip`;
   hand.innerHTML = '';
@@ -1740,67 +1740,67 @@ function renderPotionHand() {
 
 function playPotion(potId) {
   const b = G.battle;
-  const isP1 = b.phase === 'p1-potion';
-  const potions = isP1 ? b.p1Potions : b.p2Potions;
+  const isPlayerOne = b.phase === 'playerOneTurn';
+  const potions = isPlayerOne ? b.playerOnePotions : b.playerTwoPotions;
   const pot = potions.find(p => p.id === potId);
   if (!pot) return;
   pot.used = true;
 
-  const playerName = isP1 ? 'P1' : 'P2';
-  const myMon = isP1 ? b.p1Mon : b.p2Mon;
-  const enemyMon = isP1 ? b.p2Mon : b.p1Mon;
+  const playerName = isPlayerOne ? 'P1' : 'P2';
+  const myMon = isPlayerOne ? b.playerOneMon : b.playerTwoMon;
+  const enemyMon = isPlayerOne ? b.playerTwoMon : b.playerOneMon;
 
   addLog('info', `${playerName} plays ${pot.icon} ${pot.name} (Lv${pot.level})!`);
 
   const eff = pot.effect;
 
   if (pot.type === 'consume') {
-    if (eff.type === 'heal') {
+    if (eff.type === 'bananaPeelConsume') {
       const healed = Math.min(eff.value, myMon.maxHp - myMon.hp);
       myMon.hp += healed;
       addLog('heal', `🍌 Banana Peel CP — ${myMon.name} recovers ${healed}hp → ${myMon.hp}/${myMon.maxHp}hp`);
     }
-    if (eff.type === 'boost_next_atk') {
-      if (isP1) b.p1BoostNextAtk += eff.value;
-      else b.p2BoostNextAtk += eff.value;
+    if (eff.type === 'spiderEyeConsume') {
+      if (isPlayerOne) b.playerOneBoostNextAtk += eff.value;
+      else b.playerTwoBoostNextAtk += eff.value;
       addLog('info', `🕷️ Spider Eye CP — ${myMon.name}'s next attack boosted by +${eff.value} dmg`);
     }
-    if (eff.type === 'banana_dmg') {
-      const bananas = G.players[isP1 ? 0 : 1].bananas;
-      if (isP1) b.p1BoostNextAtk += bananas;
-      else b.p2BoostNextAtk += bananas;
+    if (eff.type === 'newtConsume') {
+      const bananas = G.players[isPlayerOne ? 0 : 1].bananas;
+      if (isPlayerOne) b.playerOneBoostNextAtk += bananas;
+      else b.playerTwoBoostNextAtk += bananas;
       addLog('info', `🦎 Newt CP — ${myMon.name} converts ${bananas} 🍌 into +${bananas} dmg on next attack`);
     }
-    if (eff.type === 'dmg_reduction') {
-      if (isP1) b.p1DmgReduction = eff.value;
-      else b.p2DmgReduction = eff.value;
+    if (eff.type === 'bonesConsume') {
+      if (isPlayerOne) b.playerOneDmgReduction = eff.value;
+      else b.playerTwoDmgReduction = eff.value;
       addLog('info', `🦴 Bones CP — ${myMon.name} braces for ${eff.value}% damage reduction on next hit`);
     }
   }
 
   if (pot.type === 'splash') {
-    if (eff.type === 'negate_atk') {
+    if (eff.type === 'spiderEyeSplash') {
       const hit = Math.random() * 100 < eff.chance;
       if (hit) {
-        if (isP1) b.p2NegateAtk = true;
-        else b.p1NegateAtk = true;
+        if (isPlayerOne) b.playerTwoNegateAtk = true;
+        else b.playerOneNegateAtk = true;
         addLog('status', `🕷️ Spider Eye SP — 50% roll succeeded! ${enemyMon.name}'s attack is negated this turn`);
       } else {
         addLog('info', `🕷️ Spider Eye SP — 50% roll failed, ${enemyMon.name}'s attack stands`);
       }
       b.fieldEffects.push({ icon: pot.icon, name: pot.name, turnsLeft: 1, effect: eff });
     }
-    if (eff.type === 'heal_field') {
-      b.healField = { active: true, value: eff.value, turnsLeft: eff.turns, target: isP1 ? 'p1' : 'p2' };
+    if (eff.type === 'bananaPeelSplash') {
+      b.healField = { active: true, value: eff.value, turnsLeft: eff.turns, target: isPlayerOne ? 'playerOne' : 'playerTwo' };
       b.fieldEffects.push({ icon: pot.icon, name: pot.name, turnsLeft: eff.turns, effect: eff });
       addLog('heal', `🍌 Banana Peel SP — peel lands on field! ${myMon.name} heals ${eff.value}hp/turn for ${eff.turns} turns`);
     }
-    if (eff.type === 'hazard_dmg') {
-      b.fieldEffects.push({ icon: pot.icon, name: 'Bones Hazard', turnsLeft: 1, effect: eff, target: isP1 ? 'p2' : 'p1' });
+    if (eff.type === 'bonesSplash') {
+      b.fieldEffects.push({ icon: pot.icon, name: 'Bones Hazard', turnsLeft: 1, effect: eff, target: isPlayerOne ? 'playerTwo' : 'playerOne' });
       addLog('status', `🦴 Bones SP — bones scattered on field! 60% chance to deal 2 dmg to ${enemyMon.name} when they attack`);
     }
-    if (eff.type === 'newt_splash') {
-      const bananas = G.players[isP1 ? 0 : 1].bananas;
+    if (eff.type === 'newtSplash') {
+      const bananas = G.players[isPlayerOne ? 0 : 1].bananas;
       const chance = Math.min(100, (bananas + 1) * 2);
       const hit = Math.random() * 100 < chance;
       if (hit) {
@@ -1811,9 +1811,9 @@ function playPotion(potId) {
       }
       b.fieldEffects.push({ icon: pot.icon, name: 'Newt Splash', turnsLeft: 1, effect: eff });
     }
-    if (eff.type === 'death_buffer') {
-      if (isP1) b.p1DeathBuffer = true;
-      else b.p2DeathBuffer = true;
+    if (eff.type === 'newtSplashBuffer') {
+      if (isPlayerOne) b.playerOneDeathBuffer = true;
+      else b.playerTwoDeathBuffer = true;
       b.fieldEffects.push({ icon: pot.icon, name: 'Death Buffer', turnsLeft: 1, effect: eff });
       addLog('info', `🦎 Newt SP — death buffer active on ${myMon.name}, next killing blow leaves them at 1hp instead`);
     }
@@ -1824,28 +1824,28 @@ function playPotion(potId) {
 
 function skipPotion() {
   const b = G.battle;
-  const name = b.phase === 'p1-potion' ? G.players[0].name : G.players[1].name;
+  const name = b.phase === 'playerOneTurn' ? G.players[0].name : G.players[1].name;
   addLog('system', `${name} holds their potion this turn.`);
   advanceBattlePhase();
 }
 
 function advanceBattlePhase() {
   const b = G.battle;
-  if (b.phase === 'p1-potion') {
-    b.phase = 'p2-potion';
+  if (b.phase === 'playerOneTurn') {
+    b.phase = 'playerTwoTurn';
     renderBattleScreen();
-  } else if (b.phase === 'p2-potion') {
+  } else if (b.phase === 'playerTwoTurn') {
     resolveAttacks();
   }
 }
 
 function resolveAttacks() {
   const b = G.battle;
-  addLog('system', `━━━ Turn ${b.turn} ━━━ ${b.p1Mon.spd >= b.p2Mon.spd ? b.p1Mon.name+' attacks first (higher SPD)' : b.p2Mon.name+' attacks first (higher SPD)'}`);
+  addLog('system', `━━━ Turn ${b.turn} ━━━ ${b.playerOneMon.spd >= b.playerTwoMon.spd ? b.playerOneMon.name+' attacks first (higher SPD)' : b.playerTwoMon.name+' attacks first (higher SPD)'}`);
 
   // Heal field
   if (b.healField.active && b.healField.turnsLeft > 0) {
-    const target = b.healField.target === 'p1' ? b.p1Mon : b.p2Mon;
+    const target = b.healField.target === 'playerOne' ? b.playerOneMon : b.playerTwoMon;
     const healed = Math.min(b.healField.value, target.maxHp - target.hp);
     target.hp += healed;
     b.healField.turnsLeft--;
@@ -1854,33 +1854,33 @@ function resolveAttacks() {
   }
 
   // Determine attack order by speed
-  const p1First = b.p1Mon.spd >= b.p2Mon.spd;
-  const attackOrder = p1First ? ['p1','p2'] : ['p2','p1'];
+  const playerOneAttacksFirst = b.playerOneMon.spd >= b.playerTwoMon.spd;
+  const attackOrder = playerOneAttacksFirst ? ['playerOne','playerTwo'] : ['playerTwo','playerOne'];
 
   let p1Dead = false, p2Dead = false;
 
   for (const attacker of attackOrder) {
-    const isP1 = attacker === 'p1';
-    const aMon = isP1 ? b.p1Mon : b.p2Mon;
-    const dMon = isP1 ? b.p2Mon : b.p1Mon;
-    const aNegate = isP1 ? b.p1NegateAtk : b.p2NegateAtk;
-    const dNegate = isP1 ? b.p2NegateAtk : b.p1NegateAtk;
-    const boost = isP1 ? b.p1BoostNextAtk : b.p2BoostNextAtk;
-    const dmgRedPct = isP1 ? b.p2DmgReduction : b.p1DmgReduction;
-    const deathBuf = isP1 ? b.p2DeathBuffer : b.p1DeathBuffer;
+    const isPlayerOne = attacker === 'playerOne';
+    const aMon = isPlayerOne ? b.playerOneMon : b.playerTwoMon;
+    const dMon = isPlayerOne ? b.playerTwoMon : b.playerOneMon;
+    const aNegate = isPlayerOne ? b.playerOneNegateAtk : b.playerTwoNegateAtk;
+    const dNegate = isPlayerOne ? b.playerTwoNegateAtk : b.playerOneNegateAtk;
+    const boost = isPlayerOne ? b.playerOneBoostNextAtk : b.playerTwoBoostNextAtk;
+    const dmgRedPct = isPlayerOne ? b.playerTwoDmgReduction : b.playerOneDmgReduction;
+    const deathBuf = isPlayerOne ? b.playerTwoDeathBuffer : b.playerOneDeathBuffer;
 
     if (dNegate) {
       addLog('status', `🕷️ Spider Eye SP — ${aMon.name}'s attack negated, no damage dealt`);
-      if (isP1) b.p1NegateAtk = false; else b.p2NegateAtk = false;
+      if (isPlayerOne) b.playerOneNegateAtk = false; else b.playerTwoNegateAtk = false;
       continue;
     }
 
     let rawDmg = aMon.atk + boost;
     if (boost > 0) addLog('info', `${aMon.name} attack boosted: ${aMon.atk} base + ${boost} bonus = ${rawDmg} raw dmg`);
-    if (isP1) b.p1BoostNextAtk = 0; else b.p2BoostNextAtk = 0;
+    if (isPlayerOne) b.playerOneBoostNextAtk = 0; else b.playerTwoBoostNextAtk = 0;
 
     // Apply bones hazard
-    const bonesHazard = b.fieldEffects.find(fe => fe.effect.type === 'hazard_dmg' && fe.target === attacker);
+    const bonesHazard = b.fieldEffects.find(fe => fe.effect.type === 'bonesSplash' && fe.target === attacker);
     if (bonesHazard) {
       const roll = Math.random() * 100;
       if (roll < bonesHazard.effect.chance) {
@@ -1900,7 +1900,7 @@ function resolveAttacks() {
       const before = actualDmg;
       actualDmg = Math.max(1, Math.floor(actualDmg * (1 - dmgRedPct/100)));
       addLog('info', `🦴 Bones CP — ${dmgRedPct}% reduction applied: ${before} → ${actualDmg} dmg${before <= 1 ? ' (minimum 1)' : ''}`);
-      if (isP1) b.p2DmgReduction = 0; else b.p1DmgReduction = 0;
+      if (isPlayerOne) b.playerTwoDmgReduction = 0; else b.playerOneDmgReduction = 0;
     }
 
     // Crit check (base 1%)
@@ -1911,7 +1911,7 @@ function resolveAttacks() {
     if (deathBuf && dMon.hp - actualDmg <= 0) {
       addLog('info', `🦎 Newt SP — death buffer activates! ${dMon.name} would have died, survives at 1hp instead`);
       dMon.hp = 1;
-      if (isP1) b.p2DeathBuffer = false; else b.p1DeathBuffer = false;
+      if (isPlayerOne) b.playerTwoDeathBuffer = false; else b.playerOneDeathBuffer = false;
     } else {
       dMon.hp = Math.max(0, dMon.hp - actualDmg);
       addLog('dmg', `⚔️ ${aMon.name} hits ${dMon.name} for ${actualDmg} dmg → ${dMon.hp}/${dMon.maxHp}hp remaining`);
@@ -1932,7 +1932,7 @@ function resolveAttacks() {
 
     if (dMon.hp <= 0) {
       addLog('dmg', `💀 ${dMon.name} has fallen!`);
-      if (isP1) p2Dead = true; else p1Dead = true;
+      if (isPlayerOne) p2Dead = true; else p1Dead = true;
     }
   }
 
@@ -1952,9 +1952,9 @@ function resolveAttacks() {
   }
 
   // Next turn
-  b.phase = 'p1-potion';
-  b.p1NegateAtk = false;
-  b.p2NegateAtk = false;
+  b.phase = 'playerOneTurn';
+  b.playerOneNegateAtk = false;
+  b.playerTwoNegateAtk = false;
 
   renderBattleScreen();
 }
@@ -1967,15 +1967,15 @@ function endBattle(p1Dead, p2Dead) {
   let winnerId, loserId;
   if (p1Dead && p2Dead) {
     // Tie — check who has more HP (both at 0, so use SPD as tiebreak)
-    winnerId = b.p1Mon.spd >= b.p2Mon.spd ? 0 : 1;
+    winnerId = b.playerOneMon.spd >= b.playerTwoMon.spd ? 0 : 1;
     loserId = 1 - winnerId;
     addLog('system', `Both monkeys fall! ${G.players[winnerId].name} wins on SPD tiebreak!`);
   } else if (p1Dead) {
     winnerId = 1; loserId = 0;
-    addLog('system', `${b.p1Mon.name} has fallen! P2 wins!`);
+    addLog('system', `${b.playerOneMon.name} has fallen! P2 wins!`);
   } else {
     winnerId = 0; loserId = 1;
-    addLog('system', `${b.p2Mon.name} has fallen! P1 wins!`);
+    addLog('system', `${b.playerTwoMon.name} has fallen! P1 wins!`);
   }
 
   // Payout

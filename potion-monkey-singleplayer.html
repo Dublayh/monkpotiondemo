@@ -1763,8 +1763,10 @@ function aiChoosePotion() {
     const eff = pot.effect;
 
     if (pot.type === 'consume') {
-      if (eff.type === 'bananaPeelConsume' && hpPct < 0.5) score = 80;
-      else if (eff.type === 'bananaPeelConsume' && hpPct < 0.75) score = 40;
+      if (eff.type === 'bananaPeelConsume' && hpPct === 1.0) score = 0;
+      else if (eff.type === 'bananaPeelConsume' && hpPct < 0.4) score = 90;
+      else if (eff.type === 'bananaPeelConsume' && hpPct < 0.65) score = 55;
+      else if (eff.type === 'bananaPeelConsume') score = 10;
       else if (eff.type === 'spiderEyeConsume' && canKill) score = 90;
       else if (eff.type === 'spiderEyeConsume' && hpPct > 0.6) score = 60;
       else if (eff.type === 'newtConsume' && canKill) score = 85;
@@ -2114,6 +2116,11 @@ function resolveAttacks() {
       if (roll < bonesHazard.effect.chance) {
         aMon.hp = Math.max(0, aMon.hp - bonesHazard.effect.value);
         addLog('dmg', `🦴 Bones SP — 60% roll succeeded! ${aMon.name} takes ${bonesHazard.effect.value} dmg from bones hazard → ${aMon.hp}/${aMon.maxHp}hp`);
+        if (aMon.hp <= 0) {
+          addLog('dmg', `💀 ${aMon.name} has fallen to the bones hazard!`);
+          if (isPlayerOne) playerOneDead = true; else rivalDead = true;
+          continue;
+        }
       } else {
         addLog('info', `🦴 Bones SP — 60% roll failed, ${aMon.name} avoids the bones hazard`);
       }

@@ -1765,6 +1765,9 @@ function playPotion(potId) {
   const pot = potions.find(p => p.id === potId);
   if (!pot) return;
   pot.used = true;
+  const playerIdx = isPlayerOne ? 0 : 1;
+  const original = G.players[playerIdx].brewedPotions.find(bp => bp.id === pot.id);
+  if (original) original.used = true;
   const playerName = isPlayerOne ? G.players[0].name : G.players[1].name;
   trackBattleEvent(playerName, G.battle.turn, 'played', pot);
   const myMon = isPlayerOne ? b.playerOneMon : b.playerTwoMon;
@@ -2065,10 +2068,12 @@ function showResult(winnerId, loserId) {
 
 function continueAfterBattle() {
   G.players.forEach(p => {
-    // Remove all battle potions from brewedPotions (battle is over)
+    // Only remove potions that were actually used — unused ones return to brewedPotions
     p.battlePotions.forEach(pot => {
-      const idx = p.brewedPotions.findIndex(bp => bp.id === pot.id);
-      if (idx >= 0) p.brewedPotions.splice(idx, 1);
+      if (pot.used) {
+        const idx = p.brewedPotions.findIndex(bp => bp.id === pot.id);
+        if (idx >= 0) p.brewedPotions.splice(idx, 1);
+      }
     });
     p.battlePotions = [];
     p.selectedMonkeyIdx = 0;

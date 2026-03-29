@@ -1673,19 +1673,20 @@ function aiShop(ai, mon, dominant) {
 }
 
 function aiBrew(ai, mon, dominant) {
-  // For each ingredient stack, brew the best potion type for strategy
-  Object.entries(ai.inventory.ingredients).forEach(([ingId, count]) => {
+  // Brew Spirit Water last so it can check what other potions exist to boost
+  const ingredients = Object.entries(ai.inventory.ingredients);
+  const sorted = [
+    ...ingredients.filter(([id]) => id !== 'spirit_water'),
+    ...ingredients.filter(([id]) => id === 'spirit_water')
+  ];
+
+  sorted.forEach(([ingId, count]) => {
     if (count <= 0) return;
     const ing = INGREDIENTS[ingId];
 
-    // Decide potion type: spells for stat boosts, consume/splash for battle
-    // Strategy: high ATK → spiderEyeConsume + bonesSplash
-    //           high DEF → healing consumables + shield splashes
-    //           high SPD → mix of both, lean toward splash control
     let type = chooseBrewType(ingId, dominant, ai);
     if (!type) return;
 
-    // Check flask availability
     if (type === 'consume' && ai.inventory.consume_flask <= 0) type = 'spell';
     if (type === 'splash' && ai.inventory.splash_flask <= 0) type = 'spell';
 
@@ -1706,7 +1707,6 @@ function aiBrew(ai, mon, dominant) {
     ai.inventory.ingredients[ingId] = 0;
 
     if (type === 'splash') ai.inventory.splash_flask--;
-    // consume flask returned after use, no decrement needed
   });
 }
 
@@ -1720,20 +1720,13 @@ function chooseBrewType(ingId, dominant, ai) {
   };
   let type = typeMap[ingId]?.[dominant] || 'spell';
 
-  // Spirit Water should only be brewed as a type if the AI has another potion of that type to boost
+  // Spirit Water brews last so brewedPotions is fully populated —
+  // only pick a battle potion type if we actually have one to boost
   if (ingId === 'spirit_water') {
-    const hasConsume = ai.brewedPotions.some(p => p.type === 'consume') ||
-      Object.entries(ai.inventory.ingredients).some(([id, count]) =>
-        count > 0 && typeMap[id]?.[dominant] === 'consume' && id !== 'spirit_water');
-    const hasSplash = ai.brewedPotions.some(p => p.type === 'splash') ||
-      Object.entries(ai.inventory.ingredients).some(([id, count]) =>
-        count > 0 && typeMap[id]?.[dominant] === 'splash' && id !== 'spirit_water');
-    const hasSpell = ai.brewedPotions.some(p => p.type === 'spell') ||
-      Object.entries(ai.inventory.ingredients).some(([id, count]) =>
-        count > 0 && typeMap[id]?.[dominant] === 'spell' && id !== 'spirit_water');
-
-    if (type === 'consume' && !hasConsume) type = hasSplash ? 'splash' : hasSpell ? 'spell' : 'spell';
-    if (type === 'splash' && !hasSplash) type = hasConsume ? 'consume' : hasSpell ? 'spell' : 'spell';
+    const hasConsume = ai.brewedPotions.some(p => p.type === 'consume');
+    const hasSplash = ai.brewedPotions.some(p => p.type === 'splash');
+    if (type === 'consume' && !hasConsume) type = hasSplash ? 'splash' : 'spell';
+    if (type === 'splash' && !hasSplash) type = hasConsume ? 'consume' : 'spell';
   }
 
   return type;
@@ -1779,6 +1772,20 @@ function aiChoosePotion() {
     let score = 0;
     const eff = pot.effect;
 
+    if (pot.type === 'splash') {
+      if (eff.type === 'spiderEyeSplash' && hpPct < 0.5) score = 70;
+      else if (eff.type === 'spiderEyeSplash') score = 45;
+      else if (eff.type === 'bonesSplash' && canKill) score = 65;
+      else if (eff.type === 'bananaPeelSplash' && hpPct >= 1.0) score = -999;
+      else if (eff.type === 'bananaPeelSplash' && hpPct < 0.6) score = 55;
+      else if (eff.type === 'newtSplash' && canKill) score = 80;
+      else if (eff.type === 'spiritWaterSplash') {
+        const hasOtherSplash = available.some(p => p.id !== pot.id && p.type === 'splash');
+        score = hasOtherSplash ? 50 : -999;
+      }
+      else score = 25;
+    }
+
     if (pot.type === 'consume') {
       if (eff.type === 'bananaPeelConsume' && hpPct >= 1.0) score = -999;
       else if (eff.type === 'bananaPeelConsume' && hpPct < 0.4) score = 90;
@@ -1788,17 +1795,11 @@ function aiChoosePotion() {
       else if (eff.type === 'spiderEyeConsume' && hpPct > 0.6) score = 60;
       else if (eff.type === 'newtConsume' && canKill) score = 85;
       else if (eff.type === 'bonesConsume' && hpPct < 0.4) score = 75;
+      else if (eff.type === 'spiritWaterConsume') {
+        const hasOtherConsume = available.some(p => p.id !== pot.id && p.type === 'consume');
+        score = hasOtherConsume ? 50 : -999;
+      }
       else score = 20;
-    }
-
-    if (pot.type === 'splash') {
-      if (eff.type === 'spiderEyeSplash' && hpPct < 0.5) score = 70;
-      else if (eff.type === 'spiderEyeSplash') score = 45;
-      else if (eff.type === 'bonesSplash' && canKill) score = 65;
-      else if (eff.type === 'bananaPeelSplash' && hpPct >= 1.0) score = -999;
-      else if (eff.type === 'bananaPeelSplash' && hpPct < 0.6) score = 55;
-      else if (eff.type === 'newtSplash' && canKill) score = 80;
-      else score = 25;
     }
 
     // Only add variance if score is meaningful
@@ -1972,6 +1973,10 @@ function playPotion(potId) {
   const pot = potions.find(p => p.id === potId);
   if (!pot) return;
   pot.used = true;
+  // Mark the original in brewedPotions so continueAfterBattle knows to remove it
+  const playerIdx = isPlayerOne ? 0 : 1;
+  const original = G.players[playerIdx].brewedPotions.find(bp => bp.id === pot.id);
+  if (original) original.used = true;
   const playerName = isPlayerOne ? 'You' : 'Rival Wizard';
   trackBattleEvent(playerName, G.battle.turn, 'played', pot, !isPlayerOne);
   const myMon = isPlayerOne ? b.playerOneMon : b.rivalMon;
@@ -2277,10 +2282,14 @@ function showResult(winnerId, loserId) {
 
 function continueAfterBattle() {
   G.players.forEach(p => {
-    // Remove all battle potions from brewedPotions (used or not — battle is over)
+    // Only remove potions that were actually used — unused ones return to brewedPotions
     p.battlePotions.forEach(pot => {
-      const idx = p.brewedPotions.findIndex(bp => bp.id === pot.id);
-      if (idx >= 0) p.brewedPotions.splice(idx, 1);
+      if (pot.used) {
+        const idx = p.brewedPotions.findIndex(bp => bp.id === pot.id);
+        if (idx >= 0) p.brewedPotions.splice(idx, 1);
+      }
+      // Mark unused potions as available again
+      if (!pot.used) pot.used = false;
     });
     p.battlePotions = [];
     p.selectedMonkeyIdx = 0;

@@ -1711,7 +1711,6 @@ function aiBrew(ai, mon, dominant) {
 }
 
 function chooseBrewType(ingId, dominant, ai) {
-  // Each ingredient has a preferred brew type per strategy
   const typeMap = {
     banana_peel: { atk: 'consume', def: 'spell', spd: 'splash' },
     spider_eye:  { atk: 'consume', def: 'splash', spd: 'spell' },
@@ -1719,7 +1718,25 @@ function chooseBrewType(ingId, dominant, ai) {
     bones:       { atk: 'splash', def: 'spell',  spd: 'splash' },
     spirit_water:{ atk: 'consume', def: 'splash', spd: 'consume' }
   };
-  return typeMap[ingId]?.[dominant] || 'spell';
+  let type = typeMap[ingId]?.[dominant] || 'spell';
+
+  // Spirit Water should only be brewed as a type if the AI has another potion of that type to boost
+  if (ingId === 'spirit_water') {
+    const hasConsume = ai.brewedPotions.some(p => p.type === 'consume') ||
+      Object.entries(ai.inventory.ingredients).some(([id, count]) =>
+        count > 0 && typeMap[id]?.[dominant] === 'consume' && id !== 'spirit_water');
+    const hasSplash = ai.brewedPotions.some(p => p.type === 'splash') ||
+      Object.entries(ai.inventory.ingredients).some(([id, count]) =>
+        count > 0 && typeMap[id]?.[dominant] === 'splash' && id !== 'spirit_water');
+    const hasSpell = ai.brewedPotions.some(p => p.type === 'spell') ||
+      Object.entries(ai.inventory.ingredients).some(([id, count]) =>
+        count > 0 && typeMap[id]?.[dominant] === 'spell' && id !== 'spirit_water');
+
+    if (type === 'consume' && !hasConsume) type = hasSplash ? 'splash' : hasSpell ? 'spell' : 'spell';
+    if (type === 'splash' && !hasSplash) type = hasConsume ? 'consume' : hasSpell ? 'spell' : 'spell';
+  }
+
+  return type;
 }
 
 function aiAssignSpells(ai, mon) {
@@ -1763,7 +1780,7 @@ function aiChoosePotion() {
     const eff = pot.effect;
 
     if (pot.type === 'consume') {
-      if (eff.type === 'bananaPeelConsume' && hpPct === 1.0) score = 0;
+      if (eff.type === 'bananaPeelConsume' && hpPct >= 1.0) score = -999;
       else if (eff.type === 'bananaPeelConsume' && hpPct < 0.4) score = 90;
       else if (eff.type === 'bananaPeelConsume' && hpPct < 0.65) score = 55;
       else if (eff.type === 'bananaPeelConsume') score = 10;
@@ -1778,13 +1795,14 @@ function aiChoosePotion() {
       if (eff.type === 'spiderEyeSplash' && hpPct < 0.5) score = 70;
       else if (eff.type === 'spiderEyeSplash') score = 45;
       else if (eff.type === 'bonesSplash' && canKill) score = 65;
+      else if (eff.type === 'bananaPeelSplash' && hpPct >= 1.0) score = -999;
       else if (eff.type === 'bananaPeelSplash' && hpPct < 0.6) score = 55;
       else if (eff.type === 'newtSplash' && canKill) score = 80;
       else score = 25;
     }
 
-    // Add small random variance so AI isn't perfectly predictable
-    score += Math.random() * 15;
+    // Only add variance if score is meaningful
+    if (score > 0) score += Math.random() * 15;
 
     if (score > bestScore) { bestScore = score; best = pot; }
   });
@@ -2085,16 +2103,16 @@ function resolveAttacks() {
     const dmgRedPct = isPlayerOne ? b.rivalDmgReduction : b.playerOneDmgReduction;
     const deathBuf = isPlayerOne ? b.rivalDeathBuffer : b.playerOneDeathBuffer;
 
-    // Check Bones Spell — 33% chance to nullify the attacker's battle potion boost this turn
+    // Check Bones Spell — nullify chance scales with level (33/50/66%)
     const bonesSpell = dMon.spells && dMon.spells.find(s => s.effect.type === 'bonesSpell');
     if (bonesSpell && boost > 0) {
       const nullifyRoll = Math.random() * 100;
       if (nullifyRoll < bonesSpell.effect.chance) {
         boost = 0;
         if (isPlayerOne) b.playerOneBoostNextAtk = 0; else b.rivalBoostNextAtk = 0;
-        addLog('status', `🦴 Bones Spell — ${dMon.name}'s exoskeleton nullifies ${aMon.name}'s battle potion boost! (33% roll succeeded)`);
+        addLog('status', `🦴 Bones Spell — ${dMon.name}'s exoskeleton nullifies ${aMon.name}'s battle potion boost! (${bonesSpell.effect.chance}% roll succeeded)`);
       } else {
-        addLog('info', `🦴 Bones Spell — 33% nullify roll failed, ${aMon.name}'s boost stands`);
+        addLog('info', `🦴 Bones Spell — ${bonesSpell.effect.chance}% nullify roll failed, ${aMon.name}'s boost stands`);
       }
     }
 

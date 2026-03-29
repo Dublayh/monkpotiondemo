@@ -1891,16 +1891,16 @@ function resolveAttacks() {
     const dmgRedPct = isPlayerOne ? b.playerTwoDmgReduction : b.playerOneDmgReduction;
     const deathBuf = isPlayerOne ? b.playerTwoDeathBuffer : b.playerOneDeathBuffer;
 
-    // Check Bones Spell — 33% chance to nullify the attacker's battle potion boost this turn
+    // Check Bones Spell — nullify chance scales with level (33/50/66%)
     const bonesSpell = dMon.spells && dMon.spells.find(s => s.effect.type === 'bonesSpell');
     if (bonesSpell && boost > 0) {
       const nullifyRoll = Math.random() * 100;
       if (nullifyRoll < bonesSpell.effect.chance) {
         boost = 0;
         if (isPlayerOne) b.playerOneBoostNextAtk = 0; else b.playerTwoBoostNextAtk = 0;
-        addLog('status', `🦴 Bones Spell — ${dMon.name}'s exoskeleton nullifies ${aMon.name}'s battle potion boost! (33% roll succeeded)`);
+        addLog('status', `🦴 Bones Spell — ${dMon.name}'s exoskeleton nullifies ${aMon.name}'s battle potion boost! (${bonesSpell.effect.chance}% roll succeeded)`);
       } else {
-        addLog('info', `🦴 Bones Spell — 33% nullify roll failed, ${aMon.name}'s boost stands`);
+        addLog('info', `🦴 Bones Spell — ${bonesSpell.effect.chance}% nullify roll failed, ${aMon.name}'s boost stands`);
       }
     }
 

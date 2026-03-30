@@ -1851,14 +1851,6 @@ function startBattle() {
   const playerOneMonCopy = JSON.parse(JSON.stringify(playerOne.monkeys[playerOne.selectedMonkeyIdx]));
   const rivalMonCopy = JSON.parse(JSON.stringify(rivalPlayer.monkeys[rivalPlayer.selectedMonkeyIdx]));
 
-  // Apply newtSpell — +1/2/3 DEF
-  playerOne.monkeys[playerOne.selectedMonkeyIdx].spells.forEach(s => {
-    if (s.effect.type === 'newtSpell') playerOneMonCopy.def += s.effect.value;
-  });
-  rivalPlayer.monkeys[rivalPlayer.selectedMonkeyIdx].spells.forEach(s => {
-    if (s.effect.type === 'newtSpell') rivalMonCopy.def += s.effect.value;
-  });
-
   // Deep copy battle potions
   const playerOnePotionsCopy = JSON.parse(JSON.stringify(playerOne.battlePotions));
   const rivalPotionsCopy = JSON.parse(JSON.stringify(rivalPlayer.battlePotions));

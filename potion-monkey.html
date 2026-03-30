@@ -272,7 +272,7 @@
   }
   .battle-monkey {
     flex: 1;
-    min-width: 180px;
+    min-width: 140px;
     text-align: center;
   }
   .battle-monkey-icon { font-size: 52px; margin-bottom: 8px; display: block; }
@@ -296,6 +296,14 @@
     font-size: 32px;
     color: var(--text3);
     text-align: center;
+  }
+
+  @media (max-width: 400px) {
+    .battle-arena { flex-direction: column; align-items: center; }
+    .battle-monkey { min-width: unset; width: 100%; }
+    .vs-divider { order: 2; margin: 4px 0; }
+    .battle-monkey:first-child { order: 1; }
+    .battle-monkey:last-child { order: 3; }
   }
 
   /* BATTLE LOG */
@@ -978,7 +986,8 @@ function initGame() {
         battlePotions: [],
         selectedMonkeyIdx: 0,
         cart: [],
-        shopRoll: rollShop()
+        shopRoll: rollShop(),
+        purchasedSlots: []
       },
       {
         name: 'Player 2',
@@ -989,8 +998,9 @@ function initGame() {
         battlePotions: [],
         selectedMonkeyIdx: 0,
         cart: [],
-        shopRoll: rollShop()
-      }
+        shopRoll: rollShop(),
+        purchasedSlots: []
+      },
     ],
     battle: {
       playerOneMonkeyIdx: 0,
@@ -1101,6 +1111,8 @@ function renderShop() {
     const ing = INGREDIENTS[ingId];
     const inCart = p.cart.filter(c => c.id === ingId && c.slotIdx === slotIdx).length;
     const alreadyInCart = inCart > 0;
+    const alreadyPurchased = p.purchasedSlots && p.purchasedSlots.includes(slotIdx);
+    if (alreadyPurchased) return;
     is.innerHTML += `
       <div class="shop-item ${alreadyInCart ? 'selected' : ''}" onclick="addToCart('ingredient','${ingId}',${slotIdx})">
         <div class="shop-item-type type-ingredient">ingredient</div>
@@ -1153,6 +1165,12 @@ function buyCart() {
   });
   const purchasedCart = [...p.cart];
   p.cart = [];
+  purchasedCart.forEach(item => {
+    if (item.type === 'ingredient' && item.slotIdx !== undefined) {
+      if (!p.purchasedSlots) p.purchasedSlots = [];
+      p.purchasedSlots.push(item.slotIdx);
+    }
+  });
   trackShopPurchases(p, purchasedCart);
   renderShop();
 }
@@ -1321,9 +1339,9 @@ function brewPotion() {
     p.inventory.ingredients[ingId]--;
   });
 
-  // Consume flask (spells don't need one, consume returns flask)
+  // Consume flask on brew; consume flask returned when potion used in battle, splash flask consumed on throw
   if (type === 'splash') p.inventory.splash_flask--;
-  // consume flask is returned so no decrement
+  if (type === 'consume') p.inventory.consume_flask--;
 
   const potion = {
     id: `${id}_${type}_${Date.now()}`,
@@ -1765,6 +1783,11 @@ function playPotion(potId) {
   const pot = potions.find(p => p.id === potId);
   if (!pot) return;
   pot.used = true;
+  // Return consume flask when used in battle
+  if (pot.type === 'consume') {
+    const playerIdx = isPlayerOne ? 0 : 1;
+    G.players[playerIdx].inventory.consume_flask++;
+  }
   const playerIdx = isPlayerOne ? 0 : 1;
   const original = G.players[playerIdx].brewedPotions.find(bp => bp.id === pot.id);
   if (original) original.used = true;
@@ -2085,7 +2108,9 @@ function continueAfterBattle() {
     G.level++;
     G.activePlayer = 0;
     G.players[0].shopRoll = rollShop();
+    G.players[0].purchasedSlots = [];
     G.players[1].shopRoll = rollShop();
+    G.players[1].purchasedSlots = [];
     renderShop();
     showScreen('screen-shop');
   }

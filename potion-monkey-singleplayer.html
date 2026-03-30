@@ -1419,11 +1419,20 @@ function renderSpellbook() {
           ${[0,1,2].map(i => {
             const spell = mon.spells[i];
             if (spell) {
-              return `<div class="spell-slot">${spell.icon} ${spell.name} Lv${spell.level} <button onclick="removeSpell(${mIdx},${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:4px">✕</button></div>`;
+              return `<div class="spell-slot" draggable="true"
+                ondragstart="dragSpell(event,${mIdx},${i})"
+                ondragover="event.preventDefault()"
+                ondrop="dropSpell(event,${mIdx},${i})"
+                title="Drag to reorder">
+                ☰ ${spell.icon} ${spell.name} Lv${spell.level}
+              </div>`;
             }
-            return `<div class="spell-slot empty" id="spell-slot-${mIdx}-${i}">slot ${i+1}</div>`;
+            return `<div class="spell-slot empty"
+              ondragover="event.preventDefault()"
+              ondrop="dropSpell(event,${mIdx},${i})">slot ${i+1}</div>`;
           }).join('')}
         </div>
+        ${mon.spells.length > 0 ? `<div style="font-size:11px;color:var(--text3);margin-top:6px">Spells are permanent — drag to reorder</div>` : ''}
       </div>`;
   });
 
@@ -1493,17 +1502,37 @@ function applySpellToMonkey(mon, spell) {
   if (eff.type === 'newtSpell') { mon.def += eff.value; }
 }
 
-function removeSpell(monkeyIdx, spellIdx) {
+let dragSpellData = null;
+
+function dragSpell(event, monkeyIdx, slotIdx) {
+  dragSpellData = { monkeyIdx, slotIdx };
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function dropSpell(event, monkeyIdx, slotIdx) {
+  event.preventDefault();
+  if (!dragSpellData) return;
+  const from = dragSpellData;
+  dragSpellData = null;
+
+  // Only reorder within the same monkey
+  if (from.monkeyIdx !== monkeyIdx) return;
+  if (from.slotIdx === slotIdx) return;
+
   const p = G.players[G.activePlayer];
-  const mon = p.monkeys[monkeyIdx];
-  const spell = mon.spells[spellIdx];
+  const spells = p.monkeys[monkeyIdx].spells;
 
-  const eff = spell.effect;
-  if (eff.type === 'bananaPeelSpell') { mon.maxHp -= eff.value; mon.hp = Math.min(mon.hp, mon.maxHp); }
-  if (eff.type === 'spiderEyeSpell') { mon.atk -= eff.value; }
-  if (eff.type === 'newtSpell') { mon.def -= eff.value; }
+  // Swap the two slots — no stat changes, stats already applied on assignment
+  const temp = spells[from.slotIdx];
+  spells[from.slotIdx] = spells[slotIdx] || null;
+  if (spells[slotIdx] === undefined || spells[slotIdx] === null) {
+    spells.splice(from.slotIdx, 1);
+  } else {
+    spells[slotIdx] = temp;
+  }
+  // Clean up any nulls
+  p.monkeys[monkeyIdx].spells = spells.filter(Boolean);
 
-  mon.spells.splice(spellIdx, 1);
   renderSpellbook();
 }
 

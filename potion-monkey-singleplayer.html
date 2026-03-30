@@ -858,13 +858,13 @@
      SCREEN: MONKEY PICKUP
      ============================================================ -->
 <div id="screen-monkey-pickup" class="screen">
-  <div class="header"><span class="header-title">🐵 New Monkey!</span></div>
+  <div class="header"><span class="header-title" id="pickup-header">🐵 New Monkey!</span></div>
   <div class="main" style="align-items:center;justify-content:center;flex:1">
     <div class="card" style="max-width:500px;width:100%;text-align:center">
-      <div style="font-size:64px;margin-bottom:12px" id="pickup-icon">🐵</div>
+      <div style="font-size:48px;margin-bottom:4px" id="pickup-icon">🐵</div>
       <h2 style="font-family:Fredoka,sans-serif;font-size:28px;color:var(--accent2);margin-bottom:8px" id="pickup-name">Jungle Monkey</h2>
       <p style="color:var(--text2);margin-bottom:20px" id="pickup-desc">A nimble monkey from the treetops.</p>
-      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap" id="pickup-actions"></div>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%" id="pickup-actions"></div>
     </div>
   </div>
 </div>
@@ -960,6 +960,7 @@ let G = {};
 
 function initGame() {
   G = {
+    world: 1,
     level: 1,
     currentPhase: 'shop',
     activePlayer: 0,
@@ -978,7 +979,8 @@ function initGame() {
         selectedMonkeyIdx: 0,
         cart: [],
         shopRoll: rollShop(),
-        purchasedSlots: []
+        purchasedSlots: [],
+        pickedMonkeyThisWorld: false
       },
       {
         name: 'Rival Wizard',
@@ -991,6 +993,7 @@ function initGame() {
         cart: [],
         shopRoll: rollShop(),
         purchasedSlots: [],
+        pickedMonkeyThisWorld: false,
         isAI: true
       }
     ],
@@ -1059,7 +1062,7 @@ function renderShop() {
   const p = G.players[G.activePlayer];
   document.getElementById('shop-player-name').textContent = p.name;
   document.getElementById('shop-bananas').textContent = p.bananas;
-  document.getElementById('shop-level-display').textContent = `1-${G.level}`;
+  document.getElementById('shop-level-display').textContent = `${G.world}-${G.level}`;
 
   // Monkey panel
   const monDisplay = document.getElementById('shop-monkey-display');
@@ -1910,7 +1913,7 @@ function startBattle() {
   };
 
   document.getElementById('turn-counter').textContent = 1;
-  document.getElementById('battle-level-display').textContent = `1-${G.level}`;
+  document.getElementById('battle-level-display').textContent = `${G.world}-${G.level}`;
 
   renderBattleScreen();
   showScreen('screen-battle');
@@ -2312,13 +2315,13 @@ function showResult(winnerId, loserId) {
   document.getElementById('result-details').innerHTML = `
     ${winner.name}: ${winner.bananas}🍌 total<br>
     ${loser.name}: ${loser.bananas}🍌 total<br>
-    Level 1-${G.level} complete!`;
+    Level ${G.world}-${G.level} complete!`;
 
   const btn = document.getElementById('result-continue-btn');
   if (G.level >= 3) {
-    btn.textContent = 'World 1 Complete! Pick a Monkey →';
+    btn.textContent = 'World 1 Complete! →';
   } else {
-    btn.textContent = `Next Level (1-${G.level+1}) →`;
+    btn.textContent = `Next Level (${G.world}-${G.level+1}) →`;
   }
 
   showScreen('screen-result');
@@ -2340,7 +2343,16 @@ function continueAfterBattle() {
   });
 
   if (G.level >= 3) {
-    showMonkeyPickup();
+    // World complete — advance to next world, monkey pickup happens at start of new world
+    G.world = (G.world || 1) + 1;
+    G.level = 1;
+    G.activePlayer = 0;
+    G.players.forEach(p => {
+      p.shopRoll = rollShop();
+      p.purchasedSlots = [];
+      p.pickedMonkeyThisWorld = false;
+    });
+    startWorldTransition();
   } else {
     G.level++;
     G.activePlayer = 0;
@@ -2354,11 +2366,41 @@ function continueAfterBattle() {
 }
 
 // ============================================================
-// MONKEY PICKUP
+// MONKEY PICKUP — fires at start of each new world
 // ============================================================
 
+function getWorldMonkey() {
+  // Returns the monkey offered at the start of each world
+  const worldMonkeys = {
+    2: WORLD_1_MONKEYS[2] // placeholder until World 2 monkeys are defined
+  };
+  return worldMonkeys[G.world || 2] || WORLD_1_MONKEYS[2];
+}
+
+function startWorldTransition() {
+  // AI picks automatically first, then show human player's offer
+  const ai = G.players[1];
+  const newMon = getWorldMonkey();
+  if (!ai.pickedMonkeyThisWorld) {
+    if (ai.monkeys.length < 3) {
+      ai.monkeys.push(makeMonkey(newMon, 1));
+    } else {
+      // AI releases weakest monkey (lowest total stats)
+      const weakestIdx = ai.monkeys.reduce((worst, mon, i, arr) =>
+        (mon.atk + mon.def + mon.spd) < (arr[worst].atk + arr[worst].def + arr[worst].spd) ? i : worst, 0);
+      ai.monkeys.splice(weakestIdx, 1);
+      ai.monkeys.push(makeMonkey(newMon, 1));
+    }
+    ai.pickedMonkeyThisWorld = true;
+  }
+  showMonkeyPickup();
+}
+
 function showMonkeyPickup() {
-  const newMon = WORLD_1_MONKEYS[2]; // Brute monkey as world 1 reward
+  const newMon = getWorldMonkey();
+  const p = G.players[0]; // singleplayer — only human player picks
+
+  document.getElementById('pickup-header').textContent = `🐵 World ${G.world || 2} — New Monkey!`;
   document.getElementById('pickup-icon').textContent = newMon.icon;
   document.getElementById('pickup-name').textContent = newMon.name;
   document.getElementById('pickup-desc').textContent = newMon.desc;
@@ -2366,30 +2408,71 @@ function showMonkeyPickup() {
   const actions = document.getElementById('pickup-actions');
   actions.innerHTML = '';
 
-  // Each player can pick up or not
-  G.players.forEach((p, idx) => {
-    const hasRoom = p.monkeys.length < 3;
-    actions.innerHTML += `
-      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;min-width:160px;text-align:left">
-        <div style="font-family:Fredoka,sans-serif;font-size:15px;margin-bottom:8px">${p.name}</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${p.monkeys.length}/3 monkeys</div>
-        ${hasRoom
-          ? `<button class="btn btn-success btn-sm" onclick="addMonkey(${idx})">Add ${newMon.icon}</button>`
-          : `<button class="btn btn-secondary btn-sm" disabled>Team full</button>`}
-      </div>`;
-  });
+  if (p.pickedMonkeyThisWorld) {
+    // Already decided — go to shop
+    actions.innerHTML = `<button class="btn btn-primary" onclick="proceedToShop()">Start World ${G.world || 2} →</button>`;
+    showScreen('screen-monkey-pickup');
+    return;
+  }
 
-  actions.innerHTML += `<button class="btn btn-primary" onclick="finishWorld()">Finish World 1 →</button>`;
+  if (p.monkeys.length < 3) {
+    // Room available — offer take or skip
+    actions.innerHTML = `
+      <button class="btn btn-success" onclick="playerTakeMonkey()">Take ${newMon.icon} ${newMon.name}</button>
+      <button class="btn btn-secondary" onclick="playerSkipMonkey()">Skip — I don't want it</button>`;
+  } else {
+    // Team full — must release one to make room, or skip
+    actions.innerHTML = `
+      <div style="color:var(--yellow);font-size:13px;margin-bottom:10px">⚠️ Your team is full. Release a monkey to make room, or skip.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
+        ${p.monkeys.map((mon, i) => `
+          <button class="btn btn-secondary" onclick="playerReleaseAndTake(${i})" style="text-align:left">
+            Release ${mon.icon} ${mon.name} (${mon.atk}atk/${mon.def}def/${mon.spd}spd) → Take ${newMon.icon}
+          </button>`).join('')}
+      </div>
+      <button class="btn btn-secondary" onclick="playerSkipMonkey()">Skip — keep my team as is</button>`;
+  }
 
   showScreen('screen-monkey-pickup');
 }
 
+function playerTakeMonkey() {
+  const p = G.players[0];
+  const newMon = getWorldMonkey();
+  p.monkeys.push(makeMonkey(newMon, 0));
+  p.pickedMonkeyThisWorld = true;
+  flashMessage(`You got ${newMon.icon} ${newMon.name}!`);
+  proceedToShop();
+}
+
+function playerReleaseAndTake(releaseIdx) {
+  const p = G.players[0];
+  const newMon = getWorldMonkey();
+  const released = p.monkeys[releaseIdx];
+  p.monkeys.splice(releaseIdx, 1);
+  p.monkeys.push(makeMonkey(newMon, 0));
+  p.pickedMonkeyThisWorld = true;
+  flashMessage(`Released ${released.icon} ${released.name} → Got ${newMon.icon} ${newMon.name}!`);
+  proceedToShop();
+}
+
+function playerSkipMonkey() {
+  G.players[0].pickedMonkeyThisWorld = true;
+  flashMessage('Skipped — no new monkey this world.');
+  proceedToShop();
+}
+
+function proceedToShop() {
+  renderShop();
+  showScreen('screen-shop');
+}
+
 function addMonkey(playerIdx) {
+  // Legacy function kept for safety — replaced by new pickup flow
   const p = G.players[playerIdx];
   if (p.monkeys.length >= 3) { flashMessage('Team full!'); return; }
   p.monkeys.push(makeMonkey(WORLD_1_MONKEYS[2], playerIdx));
   flashMessage(`${G.players[playerIdx].name} got a ${WORLD_1_MONKEYS[2].name}!`);
-  showMonkeyPickup();
 }
 
 function finishWorld() {

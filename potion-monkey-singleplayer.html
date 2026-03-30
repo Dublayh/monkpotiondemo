@@ -895,20 +895,11 @@ const INGREDIENTS = {
   },
   newt: {
     id: 'newt', name: 'Newt', icon: '🦎', cost: 5,
-    desc: 'Spell: +1 ATK per 5/4/3🍌 held · Splash: (🍌+1)×2/3/4% chance, 7 dmg · Consume: +1 dmg per 3/2/1🍌',
+    desc: 'Spell: +1/2/3 DEF · Splash: -2 enemy DEF for 1/2/3 turns · Consume: +4/5/6 to next DEF',
     effects: {
-      spell: (lv) => {
-        const threshold = [5,4,3][lv-1];
-        return { type: 'newtSpell', threshold, desc: `+1 ATK per ${threshold}🍌 held at battle start` };
-      },
-      splash: (lv) => {
-        const mult = [2,3,4][lv-1];
-        return { type: 'newtSplash', mult, desc: `(🍌+1)×${mult}% chance to deal 7 dmg` };
-      },
-      consume: (lv) => {
-        const threshold = [3,2,1][lv-1];
-        return { type: 'newtConsume', threshold, desc: `+1 dmg per ${threshold}🍌 held` };
-      }
+      spell: (lv) => ({ type: 'newtSpell', value: lv, desc: `+${lv} DEF` }),
+      splash: (lv) => ({ type: 'newtSplash', value: 2, turns: lv, desc: `-2 enemy DEF for ${lv} turn${lv > 1 ? 's' : ''}` }),
+      consume: (lv) => ({ type: 'newtConsume', value: [4,5,6][lv-1], desc: `+${[4,5,6][lv-1]} to next DEF` })
     }
   },
   bones: {
@@ -1499,7 +1490,7 @@ function applySpellToMonkey(mon, spell) {
   const eff = spell.effect;
   if (eff.type === 'bananaPeelSpell') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
   if (eff.type === 'spiderEyeSpell') { mon.atk += eff.value; }
-  // newtSpell applied at battle start based on current bananas
+  if (eff.type === 'newtSpell') { mon.def += eff.value; }
 }
 
 function removeSpell(monkeyIdx, spellIdx) {
@@ -1507,10 +1498,10 @@ function removeSpell(monkeyIdx, spellIdx) {
   const mon = p.monkeys[monkeyIdx];
   const spell = mon.spells[spellIdx];
 
-  // Revert spell effect
   const eff = spell.effect;
   if (eff.type === 'bananaPeelSpell') { mon.maxHp -= eff.value; mon.hp = Math.min(mon.hp, mon.maxHp); }
   if (eff.type === 'spiderEyeSpell') { mon.atk -= eff.value; }
+  if (eff.type === 'newtSpell') { mon.def -= eff.value; }
 
   mon.spells.splice(spellIdx, 1);
   renderSpellbook();
@@ -1733,8 +1724,8 @@ function chooseBrewType(ingId, dominant, ai) {
   const typeMap = {
     banana_peel: { atk: 'consume', def: 'spell', spd: 'splash' },
     spider_eye:  { atk: 'consume', def: 'splash', spd: 'spell' },
-    newt:        { atk: 'consume', def: 'spell',  spd: 'consume' },
-    bones:       { atk: 'splash', def: 'spell',  spd: 'splash' },
+    newt:        { atk: 'splash', def: 'spell',   spd: 'consume' }, // ATK builds debuff enemy DEF, DEF builds stack DEF spell, SPD builds use CP defensively
+    bones:       { atk: 'splash', def: 'spell',   spd: 'splash' },
     spirit_water:{ atk: 'consume', def: 'splash', spd: 'consume' }
   };
   let type = typeMap[ingId]?.[dominant] || 'spell';
@@ -1758,6 +1749,7 @@ function aiAssignSpells(ai, mon) {
     const eff = spell.effect;
     if (eff.type === 'bananaPeelSpell') { mon.maxHp += eff.value; mon.hp = mon.maxHp; }
     if (eff.type === 'spiderEyeSpell') { mon.atk += eff.value; }
+    if (eff.type === 'newtSpell') { mon.def += eff.value; }
     mon.spells.push(spell);
   });
 }
@@ -1794,10 +1786,14 @@ function aiChoosePotion() {
     if (pot.type === 'splash') {
       if (eff.type === 'spiderEyeSplash' && hpPct < 0.5) score = 70;
       else if (eff.type === 'spiderEyeSplash') score = 45;
-      else if (eff.type === 'bonesSplash' && canKill) score = 65;
+      else if (eff.type === 'bonesSplash') score = 55; // permanent field — good to place early
       else if (eff.type === 'bananaPeelSplash' && hpPct >= 1.0) score = -999;
       else if (eff.type === 'bananaPeelSplash' && hpPct < 0.6) score = 55;
-      else if (eff.type === 'newtSplash' && canKill) score = 80;
+      else if (eff.type === 'newtSplash') {
+        // Debuff enemy DEF — more valuable when AI has an ATK boost lined up, otherwise moderate
+        const hasAtkBoost = available.some(p => p.id !== pot.id && p.effect.type === 'spiderEyeConsume');
+        score = hasAtkBoost ? 75 : 45;
+      }
       else if (eff.type === 'spiritWaterSplash') {
         const hasOtherSplash = available.some(p => p.id !== pot.id && p.type === 'splash');
         score = hasOtherSplash ? 50 : -999;
@@ -1812,7 +1808,14 @@ function aiChoosePotion() {
       else if (eff.type === 'bananaPeelConsume') score = 10;
       else if (eff.type === 'spiderEyeConsume' && canKill) score = 90;
       else if (eff.type === 'spiderEyeConsume' && hpPct > 0.6) score = 60;
-      else if (eff.type === 'newtConsume' && canKill) score = 85;
+      else if (eff.type === 'newtConsume') {
+        // Boost DEF — most useful when taking a hit is likely (enemy can kill or AI is low HP)
+        const enemyCanHurt = playerMon.atk > aiMon.def;
+        if (hpPct < 0.4) score = 80; // low HP, shield up
+        else if (enemyCanHurt && hpPct < 0.7) score = 60;
+        else if (enemyCanHurt) score = 40;
+        else score = 15; // high DEF already, not very useful
+      }
       else if (eff.type === 'bonesConsume' && hpPct < 0.4) score = 75;
       else if (eff.type === 'spiritWaterConsume') {
         const hasOtherConsume = available.some(p => p.id !== pot.id && p.type === 'consume');
@@ -1848,18 +1851,12 @@ function startBattle() {
   const playerOneMonCopy = JSON.parse(JSON.stringify(playerOne.monkeys[playerOne.selectedMonkeyIdx]));
   const rivalMonCopy = JSON.parse(JSON.stringify(rivalPlayer.monkeys[rivalPlayer.selectedMonkeyIdx]));
 
-  // Apply newtSpell — +1 ATK per threshold🍌 held
+  // Apply newtSpell — +1/2/3 DEF
   playerOne.monkeys[playerOne.selectedMonkeyIdx].spells.forEach(s => {
-    if (s.effect.type === 'newtSpell') {
-      const bonus = Math.floor(playerOne.bananas / s.effect.threshold);
-      playerOneMonCopy.atk += bonus;
-    }
+    if (s.effect.type === 'newtSpell') playerOneMonCopy.def += s.effect.value;
   });
   rivalPlayer.monkeys[rivalPlayer.selectedMonkeyIdx].spells.forEach(s => {
-    if (s.effect.type === 'newtSpell') {
-      const bonus = Math.floor(rivalPlayer.bananas / s.effect.threshold);
-      rivalMonCopy.atk += bonus;
-    }
+    if (s.effect.type === 'newtSpell') rivalMonCopy.def += s.effect.value;
   });
 
   // Deep copy battle potions
@@ -1885,6 +1882,8 @@ function startBattle() {
     rivalDeathBuffer: false,
     playerOneBoostNextAtk: 0,
     rivalBoostNextAtk: 0,
+    playerOneBoostNextDef: 0,
+    rivalBoostNextDef: 0,
     healField: { active: false, value: 0, turnsLeft: 0, target: '' },
     pendingLogs: []
   };
@@ -2022,11 +2021,9 @@ function playPotion(potId) {
       addLog('info', `🕷️ Spider Eye CP — ${myMon.name}'s next attack boosted by +${eff.value} dmg`);
     }
     if (eff.type === 'newtConsume') {
-      const bananas = G.players[isPlayerOne ? 0 : 1].bananas;
-      const bonus = Math.floor(bananas / eff.threshold);
-      if (isPlayerOne) b.playerOneBoostNextAtk += bonus;
-      else b.rivalBoostNextAtk += bonus;
-      addLog('info', `🦎 Newt CP — ${myMon.name} converts ${bananas}🍌 (÷${eff.threshold}) into +${bonus} dmg on next attack`);
+      if (isPlayerOne) b.playerOneBoostNextDef += eff.value;
+      else b.rivalBoostNextDef += eff.value;
+      addLog('info', `🦎 Newt CP — ${myMon.name} braces up! +${eff.value} DEF on next hit`);
     }
     if (eff.type === 'bonesConsume') {
       if (isPlayerOne) b.playerOneDmgReduction = eff.value;
@@ -2057,22 +2054,8 @@ function playPotion(potId) {
       addLog('status', `🦴 Bones SP — bones scattered on field! 60% chance to deal ${eff.value} dmg to ${enemyMon.name} when they attack (permanent)`);
     }
     if (eff.type === 'newtSplash') {
-      const bananas = G.players[isPlayerOne ? 0 : 1].bananas;
-      const chance = Math.min(100, (bananas + 1) * eff.mult);
-      const hit = Math.random() * 100 < chance;
-      if (hit) {
-        enemyMon.hp = Math.max(0, enemyMon.hp - 7);
-        addLog('dmg', `🦎 Newt SP — ${chance}% roll succeeded! ${enemyMon.name} hit for 7 dmg → ${enemyMon.hp}/${enemyMon.maxHp}hp`);
-      } else {
-        addLog('info', `🦎 Newt SP — ${chance}% roll failed (based on ${bananas}🍌 × ${eff.mult}%), splash fizzles`);
-      }
-      b.fieldEffects.push({ icon: pot.icon, name: 'Newt Splash', turnsLeft: 1, effect: eff });
-    }
-    if (eff.type === 'newtSplashBuffer') {
-      if (isPlayerOne) b.playerOneDeathBuffer = true;
-      else b.rivalDeathBuffer = true;
-      b.fieldEffects.push({ icon: pot.icon, name: 'Death Buffer', turnsLeft: 1, effect: eff });
-      addLog('info', `🦎 Newt SP — death buffer active on ${myMon.name}, next killing blow leaves them at 1hp instead`);
+      b.fieldEffects.push({ icon: pot.icon, name: 'Newt DEF Debuff', turnsLeft: eff.turns, effect: eff, target: isPlayerOne ? 'rival' : 'playerOne' });
+      addLog('status', `🦎 Newt SP — ${enemyMon.name}'s DEF reduced by ${eff.value} for ${eff.turns} turn${eff.turns > 1 ? 's' : ''}!`);
     }
   }
 
@@ -2156,6 +2139,22 @@ function resolveAttacks() {
     if (boost > 0) addLog('info', `${aMon.name} attack boosted: ${aMon.atk} base + ${boost} bonus = ${rawDmg} raw dmg`);
     if (isPlayerOne) b.playerOneBoostNextAtk = 0; else b.rivalBoostNextAtk = 0;
 
+    // Apply Newt CP DEF boost to the defender
+    const defBoost = isPlayerOne ? b.rivalBoostNextDef : b.playerOneBoostNextDef;
+    let effectiveDef = dMon.def + defBoost;
+    if (defBoost > 0) {
+      addLog('info', `🦎 Newt CP — ${dMon.name} DEF boosted: ${dMon.def} base + ${defBoost} bonus = ${effectiveDef} effective DEF`);
+      if (isPlayerOne) b.rivalBoostNextDef = 0; else b.playerOneBoostNextDef = 0;
+    }
+
+    // Apply Newt SP DEF debuff to the defender
+    const newtDebuff = b.fieldEffects.find(fe => fe.effect.type === 'newtSplash' && fe.target === (isPlayerOne ? 'rival' : 'playerOne'));
+    if (newtDebuff) {
+      const debuffedDef = Math.max(0, effectiveDef - newtDebuff.effect.value);
+      addLog('status', `🦎 Newt SP — ${dMon.name} DEF reduced by ${newtDebuff.effect.value}: ${effectiveDef} → ${debuffedDef}`);
+      effectiveDef = debuffedDef;
+    }
+
     // Apply bones hazard
     const bonesHazard = b.fieldEffects.find(fe => fe.effect.type === 'bonesSplash' && fe.target === attacker);
     if (bonesHazard) {
@@ -2174,8 +2173,8 @@ function resolveAttacks() {
     }
 
     // DEF reduction, min 1
-    let actualDmg = Math.max(1, rawDmg - dMon.def);
-    if (dMon.def > 0) addLog('info', `${dMon.name} DEF ${dMon.def} absorbs damage: ${rawDmg} - ${dMon.def} = ${actualDmg} dmg${rawDmg <= dMon.def ? ' (minimum 1)' : ''}`);
+    let actualDmg = Math.max(1, rawDmg - effectiveDef);
+    if (effectiveDef > 0) addLog('info', `${dMon.name} DEF ${effectiveDef} absorbs damage: ${rawDmg} - ${effectiveDef} = ${actualDmg} dmg${rawDmg <= effectiveDef ? ' (minimum 1)' : ''}`);
 
     // % damage reduction
     if (dmgRedPct > 0) {

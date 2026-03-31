@@ -633,7 +633,7 @@
      ============================================================ -->
 <div id="screen-shop" class="screen">
   <div class="header">
-    <span class="header-title">🏪 World 1 Shop</span>
+    <span class="header-title" id="shop-title">🏪 Shop</span>
     <div class="header-info">
       <div class="stat-pill"><span>Player:</span><strong id="shop-player-name">P1</strong></div>
       <div class="stat-pill"><span>🍌</span><strong id="shop-bananas">10</strong></div>
@@ -661,6 +661,14 @@
     <div class="card">
       <div class="card-title">🌿 Ingredients <span class="badge">world 1</span></div>
       <div class="shop-grid" id="ingredient-shop"></div>
+    </div>
+    <div class="card" id="w2-ingredient-card" style="display:none">
+      <div class="card-title">🌋 Ingredients <span class="badge" style="background:var(--red)">world 2</span></div>
+      <div class="shop-grid" id="ingredient-shop-w2"></div>
+    </div>
+    <div class="card" id="brewing-tool-card" style="display:none">
+      <div class="card-title">🥄 Brewing Tool <span class="badge">world 2+</span></div>
+      <div class="shop-grid" id="brewing-tool-shop"></div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
       <div style="color:var(--text2);font-size:13px;align-self:center">Cart: <strong id="cart-count" style="color:var(--accent2)">0</strong> items · <strong id="cart-total" style="color:var(--accent2)">0🍌</strong></div>
@@ -927,20 +935,83 @@ const FLASKS = {
   splash_flask: { id: 'splash_flask', name: 'Splash Flask', icon: '💦', cost: 2, desc: 'Required for splash potions. Consumed on throw.' }
 };
 
+const WORLD_2_INGREDIENTS = {
+  the_banana: {
+    id: 'the_banana', name: 'The Banana', icon: '🍌🍌', cost: 5, world: 2,
+    desc: 'Spell: +5/8/12 max HP · Splash: 50% chance heal 5/7/10hp · Consume: Halve ATK, recover 100/200/300% of lost ATK as HP',
+    effects: {
+      spell: (lv) => ({ type: 'theBananaSpell', value: [5,8,12][lv-1], desc: `+${[5,8,12][lv-1]} max HP` }),
+      splash: (lv) => ({ type: 'theBananaSplash', chance: 50, value: [5,7,10][lv-1], desc: `50% chance to heal ${[5,7,10][lv-1]}hp` }),
+      consume: (lv) => ({ type: 'theBananaConsume', mult: [1,2,3][lv-1], desc: `Halve ATK, recover ${[100,200,300][lv-1]}% of lost ATK as HP` })
+    }
+  },
+  fire_fig: {
+    id: 'fire_fig', name: 'Fire Fig', icon: '🔥', cost: 5, world: 2,
+    desc: 'Spell: 10/20/30% burn chance per attack · Splash: 33% chance to burn 1/2/3 turns · Consume: +1/2/3 dmg, 85% burn chance',
+    effects: {
+      spell: (lv) => ({ type: 'fireFigSpell', chance: [10,20,30][lv-1], desc: `${[10,20,30][lv-1]}% chance to burn on each attack` }),
+      splash: (lv) => ({ type: 'fireFigSplash', chance: 33, turns: lv, desc: `33% chance to burn enemy for ${lv} turn${lv > 1 ? 's' : ''}` }),
+      consume: (lv) => ({ type: 'fireFigConsume', value: lv, burnChance: 85, desc: `+${lv} dmg, 85% chance to burn` })
+    }
+  },
+  pumice_stone: {
+    id: 'pumice_stone', name: 'Pumice Stone', icon: '🪨', cost: 5, world: 2,
+    desc: 'Spell: Survive 1/2/3 death blows (ATK halved on trigger) · Splash: Clear 1/2/all field effects · Consume: Clear 1/2/all status effects',
+    effects: {
+      spell: (lv) => ({ type: 'pumiceStoneSpell', charges: lv, desc: `Survive ${lv} death blow${lv > 1 ? 's' : ''} (ATK halved on trigger)` }),
+      splash: (lv) => ({ type: 'pumiceStoneSplash', count: lv === 3 ? Infinity : lv, desc: lv === 3 ? 'Clear all field effects (your side)' : `Clear ${lv} field effect${lv > 1 ? 's' : ''} (your side)` }),
+      consume: (lv) => ({ type: 'pumiceStoneConsume', count: lv === 3 ? Infinity : lv, desc: lv === 3 ? 'Clear all status effects' : `Clear ${lv} status effect${lv > 1 ? 's' : ''}` })
+    }
+  },
+  coconut_juice: {
+    id: 'coconut_juice', name: 'Coconut Juice', icon: '🥥', cost: 9, world: 2,
+    desc: 'Spell: +1/2/3🍌 per spell ATK point at battle start · Splash: +1/2/3🍌 each time you attack (permanent) · Consume: Convert ATK to 🍌, ATK set to 1',
+    effects: {
+      spell: (lv) => ({ type: 'coconutJuiceSpell', mult: lv, desc: `+${lv}🍌 per spell ATK point at battle start` }),
+      splash: (lv) => ({ type: 'coconutJuiceSplash', value: lv, desc: `+${lv}🍌 each time you attack (permanent)` }),
+      consume: (lv) => ({
+        type: 'coconutJuiceConsume',
+        ratio: lv === 1 ? 0.5 : lv,
+        desc: lv === 1 ? '+1🍌 per 2 ATK converted, ATK set to 1' : `+${lv}🍌 per ATK point converted, ATK set to 1`
+      })
+    }
+  },
+  bamboo: {
+    id: 'bamboo', name: 'Bamboo', icon: '🎋', cost: 10, world: 2,
+    desc: 'Spell: Copy spell above at Lv1/2/3 · Splash: Negate 50/75/100% of enemy active SP · Consume: +1/2/3 permanent base ATK',
+    effects: {
+      spell: (lv) => ({ type: 'bambooSpell', copyLevel: lv, desc: `Copy spell above at Lv${lv}` }),
+      splash: (lv) => ({ type: 'bambooSplash', pct: [50,75,100][lv-1], desc: `Negate ${[50,75,100][lv-1]}% of enemy active SP` }),
+      consume: (lv) => ({ type: 'bambooConsume', value: lv, desc: `+${lv} permanent base ATK` })
+    }
+  }
+};
+
+const BREWING_TOOLS = {
+  plastic_spoon: { id: 'plastic_spoon', name: 'Plastic Spoon', icon: '🥄', cost: 8, desc: '25% discount on all shop ingredients' },
+  soup_ladle: { id: 'soup_ladle', name: 'Soup Ladle', icon: '🫙', cost: 10, desc: 'All CPs also heal 3hp on use' },
+  halloween_bucket: { id: 'halloween_bucket', name: 'Halloween Bucket', icon: '🎃', cost: 10, desc: '+1 HP or +1 ATK to applicable potions' },
+  stainless_pot: { id: 'stainless_pot', name: 'Stainless Pot', icon: '🫕', cost: 13, desc: '15% chance to yield Lv2 from 1 ingredient' }
+};
+
 const WORLD_1_MONKEYS = [
   { id: 'jungle', name: 'Jungle Monkey', icon: '🐵', desc: 'A nimble monkey from the treetops.' },
   { id: 'scout', name: 'Scout Monkey', icon: '🙊', desc: 'Quick and evasive, hard to pin down.' },
   { id: 'brute', name: 'Brute Monkey', icon: '🦍', desc: 'Slow but hits like a falling coconut.' }
 ];
 
-// Total stat pool: 12. HP first (8-10), ATK minimum 1, remainder random across ATK/DEF/SPD.
-function rollMonkeyStats() {
-  const POOL = 14;
-  const hp = 8 + Math.floor(Math.random() * 3);
+const WORLD_2_MONKEYS = [
+  { id: 'brute', name: 'Brute Monkey', icon: '🦍', desc: 'Forged in volcanic heat. Hits harder than ever.' }
+];
+
+// statPool: total stat points, hpMin/hpMax: HP roll range
+function rollMonkeyStats(statPool = 14, hpMin = 8, hpMax = 10) {
+  const hp = hpMin + Math.floor(Math.random() * (hpMax - hpMin + 1));
   let atk = 1;
   let spd = 1;
   let def = 0;
-  let remaining = POOL - hp - atk - spd;
+  let remaining = statPool - hp - atk - spd;
+  if (remaining < 0) remaining = 0;
   const atkBonus = Math.floor(Math.random() * (remaining + 1));
   const defBonus = Math.floor(Math.random() * (remaining - atkBonus + 1));
   const spdBonus = remaining - atkBonus - defBonus;
@@ -973,7 +1044,7 @@ function initGame() {
         name: 'Player 1',
         bananas: 10,
         monkeys: [makeMonkey(WORLD_1_MONKEYS[0], 0)],
-        inventory: { ingredients: {}, consume_flask: 0, splash_flask: 0 },
+        inventory: { ingredients: {}, ingredients_w2: {}, consume_flask: 0, splash_flask: 0, brewingTools: {} },
         brewedPotions: [],
         battlePotions: [],
         selectedMonkeyIdx: 0,
@@ -986,7 +1057,7 @@ function initGame() {
         name: 'Rival Wizard',
         bananas: 10,
         monkeys: [makeMonkey(WORLD_1_MONKEYS[1], 1)],
-        inventory: { ingredients: {}, consume_flask: 0, splash_flask: 0 },
+        inventory: { ingredients: {}, ingredients_w2: {}, consume_flask: 0, splash_flask: 0, brewingTools: {} },
         brewedPotions: [],
         battlePotions: [],
         selectedMonkeyIdx: 0,
@@ -1012,8 +1083,8 @@ function initGame() {
   };
 }
 
-function makeMonkey(template, ownerIdx) {
-  const stats = rollMonkeyStats();
+function makeMonkey(template, ownerIdx, statPool = 14, hpMin = 8, hpMax = 10) {
+  const stats = rollMonkeyStats(statPool, hpMin, hpMax);
   return {
     id: template.id,
     name: template.name,
@@ -1035,8 +1106,24 @@ function makeMonkey(template, ownerIdx) {
 // ============================================================
 
 function rollShop() {
-  const keys = Object.keys(INGREDIENTS);
-  return [0,1,2].map(() => keys[Math.floor(Math.random() * keys.length)]);
+  const w1Keys = Object.keys(INGREDIENTS);
+  const w1Roll = [0,1,2].map(() => w1Keys[Math.floor(Math.random() * w1Keys.length)]);
+
+  let w2Roll = null;
+  let toolRoll = null;
+  if ((G.world || 1) >= 2) {
+    const w2Keys = Object.keys(WORLD_2_INGREDIENTS);
+    w2Roll = [0,1,2].map(() => w2Keys[Math.floor(Math.random() * w2Keys.length)]);
+    // One brewing tool per shop — only roll ones not yet owned
+    const p = G.players[G.activePlayer] || G.players[0];
+    const ownedTools = p.inventory.brewingTools || {};
+    const availableTools = Object.keys(BREWING_TOOLS).filter(t => !ownedTools[t]);
+    toolRoll = availableTools.length > 0
+      ? availableTools[Math.floor(Math.random() * availableTools.length)]
+      : null;
+  }
+
+  return { w1: w1Roll, w2: w2Roll, tool: toolRoll };
 }
 
 function showScreen(id) {
@@ -1084,6 +1171,8 @@ function renderShop() {
       </div>`;
   });
 
+  document.getElementById('shop-title').textContent = `🏪 World ${G.world} Shop`;
+
   // Flasks
   const fs = document.getElementById('flask-shop');
   fs.innerHTML = '';
@@ -1099,17 +1188,19 @@ function renderShop() {
       </div>`;
   });
 
-  // Ingredients — 3 randomly rolled slots, duplicates possible
+  // World 1 ingredients
   const is = document.getElementById('ingredient-shop');
   is.innerHTML = '';
-  p.shopRoll.forEach((ingId, slotIdx) => {
+  const w1Roll = Array.isArray(p.shopRoll) ? p.shopRoll : (p.shopRoll.w1 || []);
+  w1Roll.forEach((ingId, slotIdx) => {
     const ing = INGREDIENTS[ingId];
-    const inCart = p.cart.filter(c => c.id === ingId && c.slotIdx === slotIdx).length;
+    const slotKey = `w1_${slotIdx}`;
+    const inCart = p.cart.filter(c => c.slotIdx === slotKey).length;
     const alreadyInCart = inCart > 0;
-    const alreadyPurchased = p.purchasedSlots && p.purchasedSlots.includes(slotIdx);
-    if (alreadyPurchased) return; // slot is gone once bought
+    const alreadyPurchased = p.purchasedSlots && p.purchasedSlots.includes(slotKey);
+    if (alreadyPurchased) return;
     is.innerHTML += `
-      <div class="shop-item ${alreadyInCart ? 'selected' : ''}" onclick="addToCart('ingredient','${ingId}',${slotIdx})">
+      <div class="shop-item ${alreadyInCart ? 'selected' : ''}" onclick="addToCart('ingredient','${ingId}','${slotKey}')">
         <div class="shop-item-type type-ingredient">ingredient</div>
         <div class="shop-item-icon">${ing.icon}</div>
         <div class="shop-item-name">${ing.name}</div>
@@ -1119,15 +1210,69 @@ function renderShop() {
       </div>`;
   });
 
+  // World 2 ingredients (only in World 2+)
+  const w2Card = document.getElementById('w2-ingredient-card');
+  const toolCard = document.getElementById('brewing-tool-card');
+  if ((G.world || 1) >= 2 && p.shopRoll.w2) {
+    w2Card.style.display = 'block';
+    const is2 = document.getElementById('ingredient-shop-w2');
+    is2.innerHTML = '';
+    p.shopRoll.w2.forEach((ingId, slotIdx) => {
+      const ing = WORLD_2_INGREDIENTS[ingId];
+      const slotKey = `w2_${slotIdx}`;
+      const inCart = p.cart.filter(c => c.slotIdx === slotKey).length;
+      const alreadyInCart = inCart > 0;
+      const alreadyPurchased = p.purchasedSlots && p.purchasedSlots.includes(slotKey);
+      if (alreadyPurchased) return;
+      is2.innerHTML += `
+        <div class="shop-item ${alreadyInCart ? 'selected' : ''}" onclick="addToCart('ingredient_w2','${ingId}','w2_${slotIdx}')">
+          <div class="shop-item-type type-ingredient" style="background:var(--red)">W2</div>
+          <div class="shop-item-icon">${ing.icon}</div>
+          <div class="shop-item-name">${ing.name}</div>
+          <div class="shop-item-cost">${ing.cost}🍌</div>
+          <div class="shop-item-desc">${ing.desc.split(' · ').map(d => `<div>${d}</div>`).join('')}</div>
+          ${alreadyInCart ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</div>` : ''}
+        </div>`;
+    });
+
+    // Brewing tool slot
+    if (p.shopRoll.tool) {
+      const tool = BREWING_TOOLS[p.shopRoll.tool];
+      const ownedTools = p.inventory.brewingTools || {};
+      const alreadyOwned = ownedTools[p.shopRoll.tool];
+      const toolPurchased = p.purchasedSlots && p.purchasedSlots.includes('tool');
+      toolCard.style.display = 'block';
+      document.getElementById('brewing-tool-shop').innerHTML = alreadyOwned || toolPurchased ? '' : `
+        <div class="shop-item" onclick="addToCart('tool','${tool.id}','tool')">
+          <div class="shop-item-type type-ingredient" style="background:var(--accent3)">tool</div>
+          <div class="shop-item-icon">${tool.icon}</div>
+          <div class="shop-item-name">${tool.name}</div>
+          <div class="shop-item-cost">${tool.cost}🍌</div>
+          <div class="shop-item-desc">${tool.desc}</div>
+        </div>`;
+    } else {
+      toolCard.style.display = 'none';
+    }
+  } else {
+    w2Card.style.display = 'none';
+    toolCard.style.display = 'none';
+  }
+
   updateCartDisplay();
 }
 
 function addToCart(type, id, slotIdx) {
   const p = G.players[G.activePlayer];
-  const item = type === 'flask' ? FLASKS[id] : INGREDIENTS[id];
+  let item;
+  if (type === 'flask') item = FLASKS[id];
+  else if (type === 'ingredient_w2') item = WORLD_2_INGREDIENTS[id];
+  else if (type === 'tool') item = BREWING_TOOLS[id];
+  else item = INGREDIENTS[id];
+
   const cartTotal = p.cart.reduce((s,c) => s + c.cost, 0);
   if (cartTotal + item.cost > p.bananas) { flashMessage('Not enough 🍌!'); return; }
-  if (type === 'ingredient') {
+
+  if (type === 'ingredient' || type === 'ingredient_w2') {
     const alreadyInCart = p.cart.some(c => c.slotIdx === slotIdx);
     if (alreadyInCart) {
       p.cart = p.cart.filter(c => c.slotIdx !== slotIdx);
@@ -1135,6 +1280,10 @@ function addToCart(type, id, slotIdx) {
       return;
     }
     p.cart.push({ type, id, cost: item.cost, slotIdx });
+  } else if (type === 'tool') {
+    const alreadyInCart = p.cart.some(c => c.slotIdx === 'tool');
+    if (alreadyInCart) { p.cart = p.cart.filter(c => c.slotIdx !== 'tool'); renderShop(); return; }
+    p.cart.push({ type, id, cost: item.cost, slotIdx: 'tool' });
   } else {
     p.cart.push({ type, id, cost: item.cost });
   }
@@ -1154,15 +1303,20 @@ function buyCart() {
   p.cart.forEach(item => {
     if (item.type === 'flask') {
       p.inventory[item.id] = (p.inventory[item.id] || 0) + 1;
+    } else if (item.type === 'tool') {
+      if (!p.inventory.brewingTools) p.inventory.brewingTools = {};
+      p.inventory.brewingTools[item.id] = true;
+    } else if (item.type === 'ingredient_w2') {
+      if (!p.inventory.ingredients_w2) p.inventory.ingredients_w2 = {};
+      p.inventory.ingredients_w2[item.id] = (p.inventory.ingredients_w2[item.id] || 0) + 1;
     } else {
       p.inventory.ingredients[item.id] = (p.inventory.ingredients[item.id] || 0) + 1;
     }
   });
   const purchasedCart = [...p.cart];
   p.cart = [];
-  // Mark ingredient slots as purchased so they disappear from shop
   purchasedCart.forEach(item => {
-    if (item.type === 'ingredient' && item.slotIdx !== undefined) {
+    if ((item.type === 'ingredient' || item.type === 'ingredient_w2' || item.type === 'tool') && item.slotIdx !== undefined) {
       if (!p.purchasedSlots) p.purchasedSlots = [];
       p.purchasedSlots.push(item.slotIdx);
     }
@@ -1200,18 +1354,23 @@ function renderBrew() {
   document.getElementById('brew-player-name').textContent = p.name;
   document.getElementById('brew-bananas').textContent = p.bananas;
 
-  // Ingredients list
+  // Ingredients list — W1 and W2
   const il = document.getElementById('brew-ingredients');
   il.innerHTML = '';
-  Object.entries(p.inventory.ingredients).forEach(([id, count]) => {
+  const allIngredients = [
+    ...Object.entries(p.inventory.ingredients).map(([id, count]) => ({ id, count, source: 'w1' })),
+    ...Object.entries(p.inventory.ingredients_w2 || {}).map(([id, count]) => ({ id, count, source: 'w2' }))
+  ];
+  allIngredients.forEach(({ id, count, source }) => {
     if (count <= 0) return;
-    const ing = INGREDIENTS[id];
+    const ing = source === 'w2' ? WORLD_2_INGREDIENTS[id] : INGREDIENTS[id];
+    if (!ing) return;
     const inCauldron = G.cauldron.ingredients.filter(i => i === id).length;
     il.innerHTML += `
-      <div class="ingredient-row" onclick="addToCauldron('${id}')">
+      <div class="ingredient-row" onclick="addToCauldron('${id}','${source}')">
         <span class="ing-icon">${ing.icon}</span>
         <div class="ing-info">
-          <div class="ing-name">${ing.name}</div>
+          <div class="ing-name">${ing.name}${source === 'w2' ? ' <span style="font-size:10px;color:var(--red)">W2</span>' : ''}</div>
           <div class="ing-count">×${count - inCauldron} available</div>
         </div>
         <button class="btn btn-secondary btn-sm">Add</button>
@@ -1238,7 +1397,7 @@ function renderCauldron() {
   for (let i = 0; i < 3; i++) {
     const id = G.cauldron.ingredients[i];
     if (id) {
-      const ing = INGREDIENTS[id];
+      const ing = getIngredient(id);
       slots.innerHTML += `
         <div class="brew-slot filled" onclick="removeFromCauldron(${i})">
           <span class="brew-slot-icon">${ing.icon}</span>
@@ -1255,20 +1414,35 @@ function renderCauldron() {
   brewBtn.disabled = G.cauldron.ingredients.length === 0 || !G.cauldron.flaskType;
 }
 
-function addToCauldron(id) {
+function getIngredient(id) {
+  return INGREDIENTS[id] || WORLD_2_INGREDIENTS[id];
+}
+
+function getIngredientInventoryCount(p, id) {
+  return (p.inventory.ingredients[id] || 0) + (p.inventory.ingredients_w2?.[id] || 0);
+}
+
+function decrementIngredient(p, id) {
+  if ((p.inventory.ingredients[id] || 0) > 0) {
+    p.inventory.ingredients[id]--;
+  } else if ((p.inventory.ingredients_w2?.[id] || 0) > 0) {
+    p.inventory.ingredients_w2[id]--;
+  }
+}
+
+function addToCauldron(id, source) {
   const p = G.players[G.activePlayer];
   const inCauldron = G.cauldron.ingredients.filter(i => i === id).length;
-  const available = (p.inventory.ingredients[id] || 0) - inCauldron;
+  const available = getIngredientInventoryCount(p, id) - inCauldron;
   if (available <= 0) { flashMessage('No more available!'); return; }
   if (G.cauldron.ingredients.length >= 3) { flashMessage('Cauldron full! (max 3 ingredients)'); return; }
-  // Only allow same ingredient for multi-level, or different for mix (basic rule)
   if (G.cauldron.ingredients.length > 0) {
     const existingTypes = [...new Set(G.cauldron.ingredients)];
-    if (existingTypes.length === 1 && existingTypes[0] !== id && G.cauldron.ingredients.length >= 1) {
+    if (existingTypes.length === 1 && existingTypes[0] !== id) {
       flashMessage('Mix potions coming in World 2!');
       return;
     }
-    if (existingTypes.includes(id) === false && existingTypes.length >= 1) {
+    if (!existingTypes.includes(id) && existingTypes.length >= 1) {
       flashMessage('Use same ingredient to level up (mix potions: World 2+)');
       return;
     }
@@ -1309,7 +1483,7 @@ function updateBrewPreview() {
     return;
   }
   const id = G.cauldron.ingredients[0];
-  const ing = INGREDIENTS[id];
+  const ing = getIngredient(id);
   const lv = G.cauldron.ingredients.length;
   const type = G.cauldron.flaskType;
   const effect = ing.effects[type](lv);
@@ -1325,17 +1499,17 @@ function brewPotion() {
   if (G.cauldron.ingredients.length === 0 || !G.cauldron.flaskType) return;
 
   const id = G.cauldron.ingredients[0];
-  const ing = INGREDIENTS[id];
+  const ing = getIngredient(id);
   const lv = G.cauldron.ingredients.length;
   const type = G.cauldron.flaskType;
   const effect = ing.effects[type](lv);
 
-  // Consume ingredients
+  // Consume ingredients from correct inventory
   G.cauldron.ingredients.forEach(ingId => {
-    p.inventory.ingredients[ingId]--;
+    decrementIngredient(p, ingId);
   });
 
-  // Consume flask on brew; consume flask returned when potion used in battle, splash flask consumed on throw
+  // Consume flask on brew
   if (type === 'splash') p.inventory.splash_flask--;
   if (type === 'consume') p.inventory.consume_flask--;
 
@@ -1687,26 +1861,32 @@ function getDominantStat(mon) {
 function aiShop(ai, mon, dominant) {
   let budget = ai.bananas;
 
-  // Always try to buy at least 1 splash flask and 1 consume flask
   if (budget >= 2) { ai.inventory.consume_flask++; budget -= 2; }
   if (budget >= 2) { ai.inventory.splash_flask++; budget -= 2; }
 
-  // Buy ingredients from its rolled shop based on strategy
-  // Priority map: what ingredient types does this dominant stat prefer?
-  const priorities = {
-    atk: ['spider_eye', 'newt', 'hot_sauce'],
-    def: ['bones', 'banana_peel', 'spirit_water'],
-    spd: ['spider_eye', 'spirit_water', 'bones']
-  };
-  const preferred = priorities[dominant] || [];
+  const w1Priorities = { atk: ['spider_eye', 'newt'], def: ['bones', 'banana_peel', 'spirit_water'], spd: ['spider_eye', 'spirit_water', 'bones'] };
+  const w2Priorities = { atk: ['fire_fig', 'bamboo', 'coconut_juice'], def: ['pumice_stone', 'the_banana'], spd: ['fire_fig', 'coconut_juice'] };
+  const preferred = [...(w1Priorities[dominant] || []), ...(w2Priorities[dominant] || [])];
 
-  ai.shopRoll.forEach(ingId => {
+  const roll = ai.shopRoll;
+  const w1Roll = Array.isArray(roll) ? roll : (roll.w1 || []);
+  const w2Roll = Array.isArray(roll) ? [] : (roll.w2 || []);
+
+  w1Roll.forEach(ingId => {
     const ing = INGREDIENTS[ingId];
     if (!ing || budget < ing.cost) return;
-    // Prefer ingredients that match strategy, buy others 50% of the time
-    const isPriority = preferred.includes(ingId);
-    if (isPriority || Math.random() < 0.5) {
+    if (preferred.includes(ingId) || Math.random() < 0.5) {
       ai.inventory.ingredients[ingId] = (ai.inventory.ingredients[ingId] || 0) + 1;
+      budget -= ing.cost;
+    }
+  });
+
+  w2Roll.forEach(ingId => {
+    const ing = WORLD_2_INGREDIENTS[ingId];
+    if (!ing || budget < ing.cost) return;
+    if (preferred.includes(ingId) || Math.random() < 0.5) {
+      if (!ai.inventory.ingredients_w2) ai.inventory.ingredients_w2 = {};
+      ai.inventory.ingredients_w2[ingId] = (ai.inventory.ingredients_w2[ingId] || 0) + 1;
       budget -= ing.cost;
     }
   });
@@ -1716,17 +1896,21 @@ function aiShop(ai, mon, dominant) {
 
 function aiBrew(ai, mon, dominant) {
   // Brew Spirit Water last so it can check what other potions exist to boost
-  const ingredients = Object.entries(ai.inventory.ingredients);
-  const sorted = [
-    ...ingredients.filter(([id]) => id !== 'spirit_water'),
-    ...ingredients.filter(([id]) => id === 'spirit_water')
+  const w1Entries = Object.entries(ai.inventory.ingredients).map(([id, count]) => ({ id, count }));
+  const w2Entries = Object.entries(ai.inventory.ingredients_w2 || {}).map(([id, count]) => ({ id, count }));
+  const allEntries = [
+    ...w1Entries.filter(e => e.id !== 'spirit_water'),
+    ...w2Entries.filter(e => e.id !== 'spirit_water'),
+    ...w1Entries.filter(e => e.id === 'spirit_water'),
+    ...w2Entries.filter(e => e.id === 'spirit_water')
   ];
 
-  sorted.forEach(([ingId, count]) => {
+  allEntries.forEach(({ id, count }) => {
     if (count <= 0) return;
-    const ing = INGREDIENTS[ingId];
+    const ing = getIngredient(id);
+    if (!ing) return;
 
-    let type = chooseBrewType(ingId, dominant, ai);
+    let type = chooseBrewType(id, dominant, ai);
     if (!type) return;
 
     if (type === 'consume' && ai.inventory.consume_flask <= 0) type = 'spell';
@@ -1736,8 +1920,8 @@ function aiBrew(ai, mon, dominant) {
     const effect = ing.effects[type](lv);
 
     const potion = {
-      id: `ai_${ingId}_${type}_${Date.now()}_${Math.random()}`,
-      ingredientId: ingId,
+      id: `ai_${id}_${type}_${Date.now()}_${Math.random()}`,
+      ingredientId: id,
       name: `${ing.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'}`,
       icon: ing.icon,
       type,
@@ -1746,7 +1930,9 @@ function aiBrew(ai, mon, dominant) {
     };
 
     ai.brewedPotions.push(potion);
-    ai.inventory.ingredients[ingId] = 0;
+    // Decrement from correct inventory
+    if (ai.inventory.ingredients[id]) ai.inventory.ingredients[id] = 0;
+    else if (ai.inventory.ingredients_w2?.[id]) ai.inventory.ingredients_w2[id] = 0;
 
     if (type === 'splash') ai.inventory.splash_flask--;
   });
@@ -2370,26 +2556,23 @@ function continueAfterBattle() {
 // ============================================================
 
 function getWorldMonkey() {
-  // Returns the monkey offered at the start of each world
-  const worldMonkeys = {
-    2: WORLD_1_MONKEYS[2] // placeholder until World 2 monkeys are defined
+  const worldData = {
+    2: { template: WORLD_2_MONKEYS[0], statPool: 18, hpMin: 10, hpMax: 13 }
   };
-  return worldMonkeys[G.world || 2] || WORLD_1_MONKEYS[2];
+  return worldData[G.world] || worldData[2];
 }
 
 function startWorldTransition() {
-  // AI picks automatically first, then show human player's offer
   const ai = G.players[1];
-  const newMon = getWorldMonkey();
+  const worldMon = getWorldMonkey();
   if (!ai.pickedMonkeyThisWorld) {
     if (ai.monkeys.length < 3) {
-      ai.monkeys.push(makeMonkey(newMon, 1));
+      ai.monkeys.push(makeMonkey(worldMon.template, 1, worldMon.statPool, worldMon.hpMin, worldMon.hpMax));
     } else {
-      // AI releases weakest monkey (lowest total stats)
       const weakestIdx = ai.monkeys.reduce((worst, mon, i, arr) =>
         (mon.atk + mon.def + mon.spd) < (arr[worst].atk + arr[worst].def + arr[worst].spd) ? i : worst, 0);
       ai.monkeys.splice(weakestIdx, 1);
-      ai.monkeys.push(makeMonkey(newMon, 1));
+      ai.monkeys.push(makeMonkey(worldMon.template, 1, worldMon.statPool, worldMon.hpMin, worldMon.hpMax));
     }
     ai.pickedMonkeyThisWorld = true;
   }
@@ -2397,8 +2580,9 @@ function startWorldTransition() {
 }
 
 function showMonkeyPickup() {
-  const newMon = getWorldMonkey();
-  const p = G.players[0]; // singleplayer — only human player picks
+  const worldMon = getWorldMonkey();
+  const newMon = worldMon.template;
+  const p = G.players[0];
 
   document.getElementById('pickup-header').textContent = `🐵 World ${G.world || 2} — New Monkey!`;
   document.getElementById('pickup-icon').textContent = newMon.icon;
@@ -2438,21 +2622,21 @@ function showMonkeyPickup() {
 
 function playerTakeMonkey() {
   const p = G.players[0];
-  const newMon = getWorldMonkey();
-  p.monkeys.push(makeMonkey(newMon, 0));
+  const worldMon = getWorldMonkey();
+  p.monkeys.push(makeMonkey(worldMon.template, 0, worldMon.statPool, worldMon.hpMin, worldMon.hpMax));
   p.pickedMonkeyThisWorld = true;
-  flashMessage(`You got ${newMon.icon} ${newMon.name}!`);
+  flashMessage(`You got ${worldMon.template.icon} ${worldMon.template.name}!`);
   proceedToShop();
 }
 
 function playerReleaseAndTake(releaseIdx) {
   const p = G.players[0];
-  const newMon = getWorldMonkey();
+  const worldMon = getWorldMonkey();
   const released = p.monkeys[releaseIdx];
   p.monkeys.splice(releaseIdx, 1);
-  p.monkeys.push(makeMonkey(newMon, 0));
+  p.monkeys.push(makeMonkey(worldMon.template, 0, worldMon.statPool, worldMon.hpMin, worldMon.hpMax));
   p.pickedMonkeyThisWorld = true;
-  flashMessage(`Released ${released.icon} ${released.name} → Got ${newMon.icon} ${newMon.name}!`);
+  flashMessage(`Released ${released.icon} ${released.name} → Got ${worldMon.template.icon} ${worldMon.template.name}!`);
   proceedToShop();
 }
 

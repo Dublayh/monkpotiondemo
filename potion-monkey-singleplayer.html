@@ -785,8 +785,8 @@
   </div>
   <div class="main">
     <div class="card">
-      <div class="card-title">⚔️ Choose your monkey for this battle</div>
-      <div id="loadout-monkeys" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+      <div class="card-title">⚔️ Battle Order <span class="badge">drag to reorder</span></div>
+      <div id="loadout-monkeys" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
     <div class="card">
       <div class="card-title">🧳 Battle Inventory <span class="badge">3×3 grid · drag to fill</span></div>
@@ -1862,24 +1862,34 @@ function renderLoadout() {
   const p = G.players[G.activePlayer];
   document.getElementById('loadout-player-name').textContent = p.name;
 
-  // Monkey selection
+  // Battle order — draggable list, first = fights first
   const monDiv = document.getElementById('loadout-monkeys');
   monDiv.innerHTML = '';
   p.monkeys.forEach((mon, idx) => {
-    const sel = p.selectedMonkeyIdx === idx;
+    const hpPct = (mon.hp / mon.maxHp) * 100;
+    const hpClass = hpPct > 50 ? 'var(--green)' : hpPct > 25 ? 'var(--yellow)' : 'var(--red)';
     monDiv.innerHTML += `
-      <div class="monkey-card ${sel ? 'active-monkey' : ''}" onclick="selectBattleMonkey(${idx})" style="cursor:pointer;max-width:200px">
-        <div class="monkey-header">
-          <span class="monkey-avatar">${mon.icon}</span>
-          <div><div class="monkey-name">${mon.name}</div><div class="monkey-level">Lv${mon.level}</div></div>
+      <div class="spell-slot" draggable="true"
+        ondragstart="dragMonkeyOrder(event, ${idx})"
+        ondragover="event.preventDefault()"
+        ondrop="dropMonkeyOrder(event, ${idx})"
+        style="display:flex;align-items:center;gap:12px;padding:10px 12px;cursor:grab;user-select:none">
+        <span style="color:var(--text3);font-size:14px">☰</span>
+        <span style="font-size:28px">${mon.icon}</span>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span style="font-family:Fredoka,sans-serif;font-size:14px">${mon.name}</span>
+            <span style="font-size:10px;color:var(--text3)">Lv${mon.level}</span>
+            ${idx === 0 ? `<span style="font-size:10px;font-weight:700;background:var(--accent2);color:black;padding:1px 6px;border-radius:8px">1st</span>` : `<span style="font-size:10px;color:var(--text3)">#${idx+1}</span>`}
+          </div>
+          <div style="display:flex;gap:8px;font-size:11px;flex-wrap:wrap">
+            <span style="color:${hpClass}">❤️ ${mon.hp}/${mon.maxHp}</span>
+            <span style="color:var(--red)">⚔️ ${mon.atk}</span>
+            <span style="color:var(--accent3)">🛡 ${mon.def}</span>
+            <span style="color:var(--yellow)">💨 ${mon.spd}</span>
+          </div>
+          ${mon.spells.length > 0 ? `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${mon.spells.map(s => `<span style="font-size:10px;background:var(--spell-bg);border:1px solid var(--spell-border);color:var(--spell);padding:1px 5px;border-radius:5px">${s.icon} ${s.name}</span>`).join('')}</div>` : ''}
         </div>
-        <div class="stat-bars">
-          <div class="stat-row"><span class="stat-label" style="color:var(--green)">HP</span><div class="stat-bar-bg"><div class="stat-bar-fill hp-bar" style="width:${(mon.hp/mon.maxHp)*100}%"></div></div><span class="stat-val" style="color:var(--green)">${mon.hp}/${mon.maxHp}</span></div>
-          <div class="stat-row"><span class="stat-label" style="color:var(--red)">ATK</span><div class="stat-bar-bg"><div class="stat-bar-fill atk-bar" style="width:${Math.min(mon.atk*10,100)}%"></div></div><span class="stat-val" style="color:var(--red)">${mon.atk}</span></div>
-          <div class="stat-row"><span class="stat-label" style="color:var(--accent3)">DEF</span><div class="stat-bar-bg"><div class="stat-bar-fill def-bar" style="width:${Math.min(mon.def*20,100)}%"></div></div><span class="stat-val" style="color:var(--accent3)">${mon.def}</span></div>
-          <div class="stat-row"><span class="stat-label" style="color:var(--yellow)">SPD</span><div class="stat-bar-bg"><div class="stat-bar-fill spd-bar" style="width:${Math.min(mon.spd*10,100)}%"></div></div><span class="stat-val" style="color:var(--yellow)">${mon.spd}</span></div>
-        </div>
-        ${sel ? '<div style="color:var(--accent3);font-size:11px;font-weight:700;text-align:center">✓ Selected</div>' : ''}
       </div>`;
   });
 
@@ -1906,8 +1916,20 @@ function renderLoadout() {
   });
 }
 
-function selectBattleMonkey(idx) {
-  G.players[G.activePlayer].selectedMonkeyIdx = idx;
+let dragMonkeyIdx = null;
+
+function dragMonkeyOrder(event, fromIdx) {
+  dragMonkeyIdx = fromIdx;
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function dropMonkeyOrder(event, toIdx) {
+  event.preventDefault();
+  if (dragMonkeyIdx === null || dragMonkeyIdx === toIdx) return;
+  const p = G.players[G.activePlayer];
+  const moved = p.monkeys.splice(dragMonkeyIdx, 1)[0];
+  p.monkeys.splice(toIdx, 0, moved);
+  dragMonkeyIdx = null;
   renderLoadout();
 }
 
@@ -2487,9 +2509,9 @@ function playPotion(potId) {
     }
     if (eff.type === 'bambooConsume') {
       const playerIdx = isPlayerOne ? 0 : 1;
-      const selectedIdx = G.players[playerIdx].selectedMonkeyIdx;
+      const activeMonIdx = isPlayerOne ? G.battle.playerOneMonIdx : G.battle.rivalMonIdx;
       // Apply to base monkey so it persists between battles
-      G.players[playerIdx].monkeys[selectedIdx].atk += eff.value;
+      G.players[playerIdx].monkeys[activeMonIdx].atk += eff.value;
       myMon.atk += eff.value;
       addLog('status', `🎋 Bamboo CP — ${myMon.name} gains +${eff.value} permanent base ATK! (now ${myMon.atk} ATK)`);
     }

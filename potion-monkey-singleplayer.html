@@ -820,6 +820,9 @@
     </div>
   </div>
   <div class="main">
+    <!-- Team roster -->
+    <div id="battle-team-roster"></div>
+
     <!-- Arena -->
     <div class="battle-arena">
       <div class="battle-monkey" id="battle-playerOne-display"></div>
@@ -940,7 +943,12 @@ const WORLD_2_INGREDIENTS = {
     id: 'the_banana', name: 'The Banana', icon: '🍌🍌', cost: 5, world: 2,
     desc: 'Spell: +5/8/12 max HP · Splash: 50% chance heal 5/7/10hp · Consume: Halve ATK, recover 100/200/300% of lost ATK as HP',
     effects: {
-      spell: (lv) => ({ type: 'theBananaSpell', value: [5,8,12][lv-1], desc: `+${[5,8,12][lv-1]} max HP` }),
+      spell: (lv) => {
+        const ranges = [[5,15],[10,20],[15,25]];
+        const [min, max] = ranges[lv-1];
+        const value = min + Math.floor(Math.random() * (max - min + 1));
+        return { type: 'theBananaSpell', value, desc: `+${value} max HP (rolled ${min}-${max})` };
+      },
       splash: (lv) => ({ type: 'theBananaSplash', chance: 50, value: [5,7,10][lv-1], desc: `50% chance to heal ${[5,7,10][lv-1]}hp` }),
       consume: (lv) => ({ type: 'theBananaConsume', mult: [1,2,3][lv-1], desc: `Halve ATK, recover ${[100,200,300][lv-1]}% of lost ATK as HP` })
     }
@@ -1097,7 +1105,8 @@ function makeMonkey(template, ownerIdx, statPool = 14, hpMin = 8, hpMax = 10) {
     atk: stats.atk,
     def: stats.def,
     spd: stats.spd,
-    spells: []
+    spells: [],
+    statusEffects: []
   };
 }
 
@@ -1192,6 +1201,7 @@ function renderShop() {
   const is = document.getElementById('ingredient-shop');
   is.innerHTML = '';
   const w1Roll = Array.isArray(p.shopRoll) ? p.shopRoll : (p.shopRoll.w1 || []);
+  const hasSpoon = !!(p.inventory.brewingTools?.plastic_spoon);
   w1Roll.forEach((ingId, slotIdx) => {
     const ing = INGREDIENTS[ingId];
     const slotKey = `w1_${slotIdx}`;
@@ -1199,12 +1209,16 @@ function renderShop() {
     const alreadyInCart = inCart > 0;
     const alreadyPurchased = p.purchasedSlots && p.purchasedSlots.includes(slotKey);
     if (alreadyPurchased) return;
+    const displayCost = hasSpoon ? Math.floor(ing.cost * 0.75) : ing.cost;
+    const costHtml = hasSpoon
+      ? `<span style="text-decoration:line-through;color:var(--text3);font-size:11px">${ing.cost}🍌</span> <span style="color:var(--green)">${displayCost}🍌</span>`
+      : `${ing.cost}🍌`;
     is.innerHTML += `
       <div class="shop-item ${alreadyInCart ? 'selected' : ''}" onclick="addToCart('ingredient','${ingId}','${slotKey}')">
         <div class="shop-item-type type-ingredient">ingredient</div>
         <div class="shop-item-icon">${ing.icon}</div>
         <div class="shop-item-name">${ing.name}</div>
-        <div class="shop-item-cost">${ing.cost}🍌</div>
+        <div class="shop-item-cost">${costHtml}</div>
         <div class="shop-item-desc">${ing.desc.split(' · ').map(d => `<div>${d}</div>`).join('')}</div>
         ${alreadyInCart ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</div>` : ''}
       </div>`;
@@ -1224,12 +1238,16 @@ function renderShop() {
       const alreadyInCart = inCart > 0;
       const alreadyPurchased = p.purchasedSlots && p.purchasedSlots.includes(slotKey);
       if (alreadyPurchased) return;
+      const displayCost = hasSpoon ? Math.floor(ing.cost * 0.75) : ing.cost;
+      const costHtml = hasSpoon
+        ? `<span style="text-decoration:line-through;color:var(--text3);font-size:11px">${ing.cost}🍌</span> <span style="color:var(--green)">${displayCost}🍌</span>`
+        : `${ing.cost}🍌`;
       is2.innerHTML += `
-        <div class="shop-item ${alreadyInCart ? 'selected' : ''}" onclick="addToCart('ingredient_w2','${ingId}','w2_${slotIdx}')">
+        <div class="shop-item ${alreadyInCart ? 'selected' : ''}" onclick="addToCart('ingredient_w2','${ingId}','${slotKey}')">
           <div class="shop-item-type type-ingredient" style="background:var(--red)">W2</div>
           <div class="shop-item-icon">${ing.icon}</div>
           <div class="shop-item-name">${ing.name}</div>
-          <div class="shop-item-cost">${ing.cost}🍌</div>
+          <div class="shop-item-cost">${costHtml}</div>
           <div class="shop-item-desc">${ing.desc.split(' · ').map(d => `<div>${d}</div>`).join('')}</div>
           ${alreadyInCart ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</div>` : ''}
         </div>`;
@@ -1269,8 +1287,15 @@ function addToCart(type, id, slotIdx) {
   else if (type === 'tool') item = BREWING_TOOLS[id];
   else item = INGREDIENTS[id];
 
+  // Plastic Spoon — 25% discount on ingredients
+  let cost = item.cost;
+  const hasSpoon = p.inventory.brewingTools?.plastic_spoon;
+  if (hasSpoon && (type === 'ingredient' || type === 'ingredient_w2')) {
+    cost = Math.floor(cost * 0.75);
+  }
+
   const cartTotal = p.cart.reduce((s,c) => s + c.cost, 0);
-  if (cartTotal + item.cost > p.bananas) { flashMessage('Not enough 🍌!'); return; }
+  if (cartTotal + cost > p.bananas) { flashMessage('Not enough 🍌!'); return; }
 
   if (type === 'ingredient' || type === 'ingredient_w2') {
     const alreadyInCart = p.cart.some(c => c.slotIdx === slotIdx);
@@ -1279,13 +1304,13 @@ function addToCart(type, id, slotIdx) {
       renderShop();
       return;
     }
-    p.cart.push({ type, id, cost: item.cost, slotIdx });
+    p.cart.push({ type, id, cost, slotIdx });
   } else if (type === 'tool') {
     const alreadyInCart = p.cart.some(c => c.slotIdx === 'tool');
     if (alreadyInCart) { p.cart = p.cart.filter(c => c.slotIdx !== 'tool'); renderShop(); return; }
-    p.cart.push({ type, id, cost: item.cost, slotIdx: 'tool' });
+    p.cart.push({ type, id, cost, slotIdx: 'tool' });
   } else {
-    p.cart.push({ type, id, cost: item.cost });
+    p.cart.push({ type, id, cost });
   }
   renderShop();
 }
@@ -1414,6 +1439,41 @@ function renderCauldron() {
   brewBtn.disabled = G.cauldron.ingredients.length === 0 || !G.cauldron.flaskType;
 }
 
+const MIX_POTIONS = {
+  'banana_peel+the_banana': {
+    name: 'Whole Banana Potion', icon: '🍌✨', ingredients: ['banana_peel', 'the_banana'],
+    effects: {
+      spell: (lv) => {
+        const ranges = [[5,15],[10,20],[15,25]];
+        const [min, max] = ranges[lv-1];
+        const value = min + Math.floor(Math.random() * (max - min + 1));
+        return { type: 'wholeBananaSpell', value, desc: `+${value} max HP (rolled ${min}-${max})` };
+      },
+      splash: (lv) => ({ type: 'wholeBananaSplash', chance: 40, turns: 2, desc: `40% chance to fully heal (re-rolls each turn, 2 turns)` }),
+      consume: (lv) => ({ type: 'wholeBananaConsume', mult: [1, 1.5, 2][lv-1], desc: `Heal ${[100,150,200][lv-1]}% of current ATK as HP` })
+    }
+  },
+  'bones+pumice_stone': {
+    name: 'Sand and Dust', icon: '🦴🪨', ingredients: ['bones', 'pumice_stone'],
+    effects: {
+      spell: (lv) => ({ type: 'sandDustSpell', turns: lv, desc: `Nullify incoming splashes for ${lv} turn${lv > 1 ? 's' : ''}` }),
+      splash: (lv) => ({ type: 'sandDustSplash', chance: [10,15,20][lv-1], desc: `${[10,15,20][lv-1]}% chance enemy misses each attack (permanent)` }),
+      consume: (lv) => ({ type: 'sandDustConsume', charges: lv, desc: `Absorb ${lv} free hit${lv > 1 ? 's' : ''}` })
+    }
+  }
+};
+
+function getMixKey(ingredients) {
+  const unique = [...new Set(ingredients)].sort();
+  if (unique.length === 2) return unique.join('+');
+  return null;
+}
+
+function getMixPotion(ingredients) {
+  const key = getMixKey(ingredients);
+  return key ? MIX_POTIONS[key] : null;
+}
+
 function getIngredient(id) {
   return INGREDIENTS[id] || WORLD_2_INGREDIENTS[id];
 }
@@ -1438,13 +1498,28 @@ function addToCauldron(id, source) {
   if (G.cauldron.ingredients.length >= 3) { flashMessage('Cauldron full! (max 3 ingredients)'); return; }
   if (G.cauldron.ingredients.length > 0) {
     const existingTypes = [...new Set(G.cauldron.ingredients)];
-    if (existingTypes.length === 1 && existingTypes[0] !== id) {
-      flashMessage('Mix potions coming in World 2!');
-      return;
-    }
-    if (!existingTypes.includes(id) && existingTypes.length >= 1) {
-      flashMessage('Use same ingredient to level up (mix potions: World 2+)');
-      return;
+    const isNewType = !existingTypes.includes(id);
+    if (isNewType) {
+      // Check if this combo forms a valid mix potion
+      const testIngredients = [...G.cauldron.ingredients, id];
+      const mix = getMixPotion(testIngredients);
+      if (!mix) {
+        if ((G.world || 1) >= 2) {
+          flashMessage('No mix potion for that combo — use same ingredient to level up');
+        } else {
+          flashMessage('Mix potions unlock in World 2!');
+        }
+        return;
+      }
+      // Valid mix — must have exactly 1 of each so far or be adding to a valid mix
+      const counts = {};
+      testIngredients.forEach(i => counts[i] = (counts[i] || 0) + 1);
+      const maxCount = Math.max(...Object.values(counts));
+      const minCount = Math.min(...Object.values(counts));
+      if (maxCount - minCount > 1) {
+        flashMessage('Mix potions need equal amounts of each ingredient');
+        return;
+      }
     }
   }
   G.cauldron.ingredients.push(id);
@@ -1482,15 +1557,30 @@ function updateBrewPreview() {
     preview.style.display = 'none';
     return;
   }
-  const id = G.cauldron.ingredients[0];
-  const ing = getIngredient(id);
-  const lv = G.cauldron.ingredients.length;
   const type = G.cauldron.flaskType;
-  const effect = ing.effects[type](lv);
+  const mix = getMixPotion(G.cauldron.ingredients);
+  let name, icon, desc;
+  if (mix) {
+    const counts = {};
+    G.cauldron.ingredients.forEach(i => counts[i] = (counts[i] || 0) + 1);
+    const lv = Math.min(...Object.values(counts));
+    const effect = mix.effects[type](lv);
+    name = `${mix.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'} · Lv${lv}`;
+    icon = mix.icon;
+    desc = effect.desc;
+  } else {
+    const id = G.cauldron.ingredients[0];
+    const ing = getIngredient(id);
+    const lv = G.cauldron.ingredients.length;
+    const effect = ing.effects[type](lv);
+    name = `${ing.icon} ${ing.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'} · Level ${lv}`;
+    icon = '';
+    desc = effect.desc;
+  }
   preview.style.display = 'block';
   preview.innerHTML = `
-    <div class="brew-preview-title">${ing.icon} ${ing.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'} · Level ${lv}</div>
-    <div class="brew-preview-effects">${effect.desc}</div>`;
+    <div class="brew-preview-title">${icon} ${name}</div>
+    <div class="brew-preview-effects">${desc}</div>`;
   document.getElementById('brew-btn').disabled = false;
 }
 
@@ -1498,30 +1588,69 @@ function brewPotion() {
   const p = G.players[G.activePlayer];
   if (G.cauldron.ingredients.length === 0 || !G.cauldron.flaskType) return;
 
-  const id = G.cauldron.ingredients[0];
-  const ing = getIngredient(id);
-  const lv = G.cauldron.ingredients.length;
   const type = G.cauldron.flaskType;
-  const effect = ing.effects[type](lv);
+  const mix = getMixPotion(G.cauldron.ingredients);
 
-  // Consume ingredients from correct inventory
-  G.cauldron.ingredients.forEach(ingId => {
-    decrementIngredient(p, ingId);
-  });
+  let potion;
+  let stainlessProc = false;
+  let bucketProc = false;
+  if (mix) {
+    // Mix potion — level based on how many of each ingredient (1 each = Lv1, 2 each = Lv2, etc.)
+    const counts = {};
+    G.cauldron.ingredients.forEach(i => counts[i] = (counts[i] || 0) + 1);
+    const lv = Math.min(...Object.values(counts));
+    const effect = mix.effects[type](lv);
+    G.cauldron.ingredients.forEach(ingId => decrementIngredient(p, ingId));
+    if (type === 'splash') p.inventory.splash_flask--;
+    if (type === 'consume') p.inventory.consume_flask--;
+    potion = {
+      id: `mix_${type}_${Date.now()}`,
+      ingredientId: G.cauldron.ingredients.join('+'),
+      name: `${mix.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'}`,
+      icon: mix.icon,
+      type, level: lv, effect, isMix: true
+    };
+  } else {
+    // Standard single-ingredient potion
+    const id = G.cauldron.ingredients[0];
+    const ing = getIngredient(id);
+    const hasStainlessPot = !!(p.inventory.brewingTools?.stainless_pot);
+    const hasHalloweenBucket = !!(p.inventory.brewingTools?.halloween_bucket);
 
-  // Consume flask on brew
-  if (type === 'splash') p.inventory.splash_flask--;
-  if (type === 'consume') p.inventory.consume_flask--;
+    // Stainless Pot — 15% chance to treat 1 ingredient as Lv2
+    let lv = G.cauldron.ingredients.length;
+    if (hasStainlessPot && lv === 1 && Math.random() < 0.15) {
+      lv = 2;
+      stainlessProc = true;
+    }
 
-  const potion = {
-    id: `${id}_${type}_${Date.now()}`,
-    ingredientId: id,
-    name: `${ing.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'}`,
-    icon: ing.icon,
-    type,
-    level: lv,
-    effect
-  };
+    let effect = ing.effects[type](lv);
+
+    // Halloween Bucket — +1 HP or +1 ATK to applicable potions
+    if (hasHalloweenBucket) {
+      if (effect.type === 'bananaPeelSpell' || effect.type === 'bananaPeelConsume' || effect.type === 'bananaPeelSplash' ||
+          effect.type === 'theBananaSpell' || effect.type === 'wholeBananaSpell' || effect.type === 'wholeBananaConsume') {
+        effect = { ...effect, value: (effect.value || 0) + 1, desc: effect.desc + ' (+1 from 🎃)' };
+        bucketProc = true;
+      } else if (effect.type === 'spiderEyeSpell' || effect.type === 'spiderEyeConsume' ||
+                 effect.type === 'newtSpell' || effect.type === 'newtConsume' ||
+                 effect.type === 'bambooConsume' || effect.type === 'fireFigConsume') {
+        effect = { ...effect, value: (effect.value || 0) + 1, desc: effect.desc + ' (+1 from 🎃)' };
+        bucketProc = true;
+      }
+    }
+
+    G.cauldron.ingredients.forEach(ingId => decrementIngredient(p, ingId));
+    if (type === 'splash') p.inventory.splash_flask--;
+    if (type === 'consume') p.inventory.consume_flask--;
+    potion = {
+      id: `${id}_${type}_${Date.now()}`,
+      ingredientId: id,
+      name: `${ing.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'}`,
+      icon: ing.icon,
+      type, level: lv, effect
+    };
+  }
 
   p.brewedPotions.push(potion);
   trackPotionBrewed(p, potion);
@@ -1531,7 +1660,10 @@ function brewPotion() {
   document.querySelectorAll('.flask-btn').forEach(b => b.classList.remove('selected-flask','selected-flask-splash'));
 
   renderBrew();
-  flashMessage(`Brewed: ${potion.name} Lv${lv}!`);
+  let brewMsg = `Brewed: ${potion.name} Lv${potion.level}!`;
+  if (stainlessProc) brewMsg += ' 🫕 Stainless Pot — Lv2!';
+  if (bucketProc) brewMsg += ' 🎃 Bucket bonus!';
+  flashMessage(brewMsg);
 }
 
 function renderBrewedList() {
@@ -1677,6 +1809,10 @@ function applySpellToMonkey(mon, spell) {
   if (eff.type === 'bananaPeelSpell') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
   if (eff.type === 'spiderEyeSpell') { mon.atk += eff.value; }
   if (eff.type === 'newtSpell') { mon.def += eff.value; }
+  if (eff.type === 'pumiceStoneSpell') { mon.pumiceCharges = (mon.pumiceCharges || 0) + eff.charges; }
+  if (eff.type === 'theBananaSpell') { const bonus = eff.value; mon.maxHp += bonus; mon.hp = Math.min(mon.hp + bonus, mon.maxHp); }
+  if (eff.type === 'wholeBananaSpell') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
+  if (eff.type === 'sandDustSpell') { mon.splashNullifyTurns = (mon.splashNullifyTurns || 0) + eff.turns; }
 }
 
 let dragSpellData = null;
@@ -1942,9 +2078,15 @@ function chooseBrewType(ingId, dominant, ai) {
   const typeMap = {
     banana_peel: { atk: 'consume', def: 'spell', spd: 'splash' },
     spider_eye:  { atk: 'consume', def: 'splash', spd: 'spell' },
-    newt:        { atk: 'splash', def: 'spell',   spd: 'consume' }, // ATK builds debuff enemy DEF, DEF builds stack DEF spell, SPD builds use CP defensively
+    newt:        { atk: 'splash', def: 'spell',   spd: 'consume' },
     bones:       { atk: 'splash', def: 'spell',   spd: 'splash' },
-    spirit_water:{ atk: 'consume', def: 'splash', spd: 'consume' }
+    spirit_water:{ atk: 'consume', def: 'splash', spd: 'consume' },
+    // World 2
+    fire_fig:    { atk: 'consume', def: 'splash', spd: 'spell' },
+    the_banana:  { atk: 'consume', def: 'spell',  spd: 'splash' },
+    pumice_stone:{ atk: 'spell',   def: 'spell',  spd: 'consume' },
+    coconut_juice:{ atk: 'splash', def: 'consume', spd: 'splash' },
+    bamboo:      { atk: 'consume', def: 'spell',  spd: 'splash' }
   };
   let type = typeMap[ingId]?.[dominant] || 'spell';
 
@@ -2004,11 +2146,10 @@ function aiChoosePotion() {
     if (pot.type === 'splash') {
       if (eff.type === 'spiderEyeSplash' && hpPct < 0.5) score = 70;
       else if (eff.type === 'spiderEyeSplash') score = 45;
-      else if (eff.type === 'bonesSplash') score = 55; // permanent field — good to place early
+      else if (eff.type === 'bonesSplash') score = 55;
       else if (eff.type === 'bananaPeelSplash' && hpPct >= 1.0) score = -999;
       else if (eff.type === 'bananaPeelSplash' && hpPct < 0.6) score = 55;
       else if (eff.type === 'newtSplash') {
-        // Debuff enemy DEF — more valuable when AI has an ATK boost lined up, otherwise moderate
         const hasAtkBoost = available.some(p => p.id !== pot.id && p.effect.type === 'spiderEyeConsume');
         score = hasAtkBoost ? 75 : 45;
       }
@@ -2016,6 +2157,13 @@ function aiChoosePotion() {
         const hasOtherSplash = available.some(p => p.id !== pot.id && p.type === 'splash');
         score = hasOtherSplash ? 50 : -999;
       }
+      else if (eff.type === 'fireFigSplash') score = 60;
+      else if (eff.type === 'coconutJuiceSplash') score = 55;
+      else if (eff.type === 'bambooSplash') {
+        const enemyEffects = b.fieldEffects.filter(fe => fe.target === 'rival' || fe.target === 'playerOne');
+        score = enemyEffects.length > 0 ? 65 : -999;
+      }
+      else if (eff.type === 'sandDustSplash') score = 60;
       else score = 25;
     }
 
@@ -2027,18 +2175,22 @@ function aiChoosePotion() {
       else if (eff.type === 'spiderEyeConsume' && canKill) score = 90;
       else if (eff.type === 'spiderEyeConsume' && hpPct > 0.6) score = 60;
       else if (eff.type === 'newtConsume') {
-        // Boost DEF — most useful when taking a hit is likely (enemy can kill or AI is low HP)
         const enemyCanHurt = playerMon.atk > aiMon.def;
-        if (hpPct < 0.4) score = 80; // low HP, shield up
+        if (hpPct < 0.4) score = 80;
         else if (enemyCanHurt && hpPct < 0.7) score = 60;
         else if (enemyCanHurt) score = 40;
-        else score = 15; // high DEF already, not very useful
+        else score = 15;
       }
       else if (eff.type === 'bonesConsume' && hpPct < 0.4) score = 75;
       else if (eff.type === 'spiritWaterConsume') {
         const hasOtherConsume = available.some(p => p.id !== pot.id && p.type === 'consume');
         score = hasOtherConsume ? 50 : -999;
       }
+      else if (eff.type === 'fireFigConsume' && canKill) score = 85; // fire punch to finish
+      else if (eff.type === 'fireFigConsume') score = 65; // dmg boost + burn chance always useful
+      else if (eff.type === 'bambooConsume') score = 70;
+      else if (eff.type === 'sandDustConsume') score = hpPct < 0.5 ? 80 : 45; // absorb hits when low HP
+      else if (eff.type === 'coconutJuiceConsume') score = aiMon.atk >= 5 ? 60 : 20;
       else score = 20;
     }
 
@@ -2061,27 +2213,70 @@ function aiChoosePotion() {
 
 
 
+function applyBattleStartSpells(player, monCopy, playerIdx) {
+  // Bamboo Spell — copy the spell directly above it
+  monCopy.spells && monCopy.spells.forEach((spell, idx) => {
+    if (spell.effect.type === 'bambooSpell' && idx > 0) {
+      const above = monCopy.spells[idx - 1];
+      if (above) {
+        const copyLevel = spell.effect.copyLevel;
+        const ing = getIngredient(above.ingredientId);
+        if (ing && ing.effects.spell) {
+          const copiedEffect = ing.effects.spell(copyLevel);
+          if (copiedEffect.type === 'spiderEyeSpell') monCopy.atk += copiedEffect.value;
+          if (copiedEffect.type === 'bananaPeelSpell') { monCopy.maxHp += copiedEffect.value; monCopy.hp = Math.min(monCopy.hp + copiedEffect.value, monCopy.maxHp); }
+          if (copiedEffect.type === 'theBananaSpell') { monCopy.maxHp += copiedEffect.value; monCopy.hp = Math.min(monCopy.hp + copiedEffect.value, monCopy.maxHp); }
+          if (copiedEffect.type === 'wholeBananaSpell') { monCopy.maxHp += copiedEffect.value; monCopy.hp = Math.min(monCopy.hp + copiedEffect.value, monCopy.maxHp); }
+          if (copiedEffect.type === 'newtSpell') monCopy.def += copiedEffect.value;
+          if (copiedEffect.type === 'fireFigSpell') monCopy.spells.push({ ...above, effect: copiedEffect, id: 'bamboo_copy_' + Date.now() });
+          addLog('system', `🎋 Bamboo Spell — ${monCopy.name} copies ${above.icon} ${above.name} at Lv${copyLevel}! (${copiedEffect.desc})`);
+        }
+      }
+    }
+  });
+
+  // Coconut Juice Spell — pay out bananas based on spell ATK points
+  monCopy.spells && monCopy.spells.forEach(spell => {
+    if (spell.effect.type === 'coconutJuiceSpell') {
+      const spellAtk = monCopy.spells.reduce((sum, s) => s.effect.type === 'spiderEyeSpell' ? sum + s.effect.value : sum, 0);
+      const payout = spellAtk * spell.effect.mult;
+      if (payout > 0) {
+        player.bananas += payout;
+        addLog('info', `🥥 Coconut Juice Spell — ${monCopy.name} earns ${payout}🍌 from ${spellAtk} spell ATK points!`);
+      }
+    }
+  });
+}
+
 function startBattle() {
   const playerOne = G.players[0];
   const rivalPlayer = G.players[1];
 
-  // Deep copy battle monkeys
-  const playerOneMonCopy = JSON.parse(JSON.stringify(playerOne.monkeys[playerOne.selectedMonkeyIdx]));
-  const rivalMonCopy = JSON.parse(JSON.stringify(rivalPlayer.monkeys[rivalPlayer.selectedMonkeyIdx]));
+  // Deep copy all monkeys for both teams
+  const playerOneTeam = playerOne.monkeys.map(m => JSON.parse(JSON.stringify(m)));
+  const rivalTeam = rivalPlayer.monkeys.map(m => JSON.parse(JSON.stringify(m)));
 
   // Deep copy battle potions
   const playerOnePotionsCopy = JSON.parse(JSON.stringify(playerOne.battlePotions));
   const rivalPotionsCopy = JSON.parse(JSON.stringify(rivalPlayer.battlePotions));
 
+  // Apply start-of-battle spells to first monkey on each team
+  applyBattleStartSpells(playerOne, playerOneTeam[0], 0);
+  applyBattleStartSpells(rivalPlayer, rivalTeam[0], 1);
+
   G.battle = {
-    playerOneMon: playerOneMonCopy,
-    rivalMon: rivalMonCopy,
+    playerOneTeam,
+    rivalTeam,
+    playerOneMon: playerOneTeam[0],
+    rivalMon: rivalTeam[0],
+    playerOneMonIdx: 0,
+    rivalMonIdx: 0,
     playerOnePotions: playerOnePotionsCopy,
     rivalPotions: rivalPotionsCopy,
     fieldEffects: [],
     log: [],
     turn: 1,
-    phase: 'playerOneTurn', // playerOneTurn → rivalTurn → resolve → check → playerOneTurn...
+    phase: 'playerOneTurn',
     playerOneUsedPotion: null,
     rivalUsedPotion: null,
     playerOneNegateAtk: false,
@@ -2094,6 +2289,10 @@ function startBattle() {
     rivalBoostNextAtk: 0,
     playerOneBoostNextDef: 0,
     rivalBoostNextDef: 0,
+    playerOneBurnChance: 0,
+    rivalBurnChance: 0,
+    playerOneCoconutPayout: 0,
+    rivalCoconutPayout: 0,
     healField: { active: false, value: 0, turnsLeft: 0, target: '' },
     pendingLogs: []
   };
@@ -2103,7 +2302,8 @@ function startBattle() {
 
   renderBattleScreen();
   showScreen('screen-battle');
-  addLog('system', `⚔️ Battle begins! ${playerOneMonCopy.name} (${playerOneMonCopy.spd} SPD) vs ${rivalMonCopy.name} (${rivalMonCopy.spd} SPD)`);
+  addLog('system', `⚔️ Battle begins! ${playerOneTeam[0].name} vs ${rivalTeam[0].name}`);
+  addLog('system', `Your team: ${playerOneTeam.map(m => m.icon + m.name).join(', ')} · Rival team: ${rivalTeam.map(m => m.icon + m.name).join(', ')}`);
   renderBattleScreen();
 }
 
@@ -2111,6 +2311,27 @@ function renderBattleScreen() {
   const b = G.battle;
   renderBattleMonkey('battle-playerOne-display', b.playerOneMon, 'You', G.players[0]);
   renderBattleMonkey('battle-rivalWizard-display', b.rivalMon, 'Rival Wizard', G.players[1]);
+
+  // Show team rosters if teams have more than 1 monkey
+  const rosterEl = document.getElementById('battle-team-roster');
+  if (rosterEl && b.playerOneTeam) {
+    const p1Roster = b.playerOneTeam.map((m, i) => {
+      const dead = i < b.playerOneMonIdx;
+      const active = i === b.playerOneMonIdx;
+      return `<span style="font-size:20px;opacity:${dead ? 0.3 : 1};${active ? 'outline:2px solid var(--accent2);border-radius:4px;' : ''}" title="${m.name} ${m.hp}/${m.maxHp}hp">${m.icon}</span>`;
+    }).join('');
+    const r1Roster = b.rivalTeam.map((m, i) => {
+      const dead = i < b.rivalMonIdx;
+      const active = i === b.rivalMonIdx;
+      return `<span style="font-size:20px;opacity:${dead ? 0.3 : 1};${active ? 'outline:2px solid var(--red);border-radius:4px;' : ''}" title="${m.name} ${m.hp}/${m.maxHp}hp">${m.icon}</span>`;
+    }).join('');
+    rosterEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--card2);border-radius:8px;margin-bottom:8px;font-size:12px">
+        <div style="display:flex;gap:4px;align-items:center"><span style="color:var(--text2);margin-right:4px">You:</span>${p1Roster}</div>
+        <div style="display:flex;gap:4px;align-items:center">${r1Roster}<span style="color:var(--text2);margin-left:4px">:Rival</span></div>
+      </div>`;
+  }
+
   renderFieldEffects();
   renderPotionHand();
   renderBattleLog();
@@ -2123,6 +2344,9 @@ function renderBattleMonkey(elId, mon, label, player) {
   const statusHtml = mon.statusEffects ? mon.statusEffects.map(se =>
     `<span class="status-badge status-${se.type}">${se.type === 'burn' ? '🔥 Burn' : '⚠️ '+se.type}</span>`
   ).join('') : '';
+  const pumiceHtml = (mon.pumiceCharges > 0) ? `<span class="status-badge" style="background:#4a4a2a;color:#ffd700">🪨 ×${mon.pumiceCharges}</span>` : '';
+  const absorbHtml = (mon.absorbCharges > 0) ? `<span class="status-badge" style="background:#3a2a1a;color:#d4a96a">🛡 ×${mon.absorbCharges}</span>` : '';
+  const nullifyHtml = (mon.splashNullifyTurns > 0) ? `<span class="status-badge" style="background:#1a2a3a;color:#6ab0d4">🚫💦 ${mon.splashNullifyTurns}t</span>` : '';
 
   el.innerHTML = `
     <img src="MonkeyWizard.gif" style="width:120px;height:120px;object-fit:contain;image-rendering:pixelated;${label !== 'You' ? 'transform:scaleX(-1);' : ''}" alt="${mon.name}"/>
@@ -2134,7 +2358,7 @@ function renderBattleMonkey(elId, mon, label, player) {
       <div class="battle-stat spd-stat">💨 ${mon.spd}</div>
     </div>
     <div class="hp-bar-large"><div class="hp-fill ${hpClass}" style="width:${hpPct}%"></div></div>
-    ${statusHtml ? `<div class="status-effects" style="justify-content:center;margin-top:6px">${statusHtml}</div>` : ''}`;
+    ${statusHtml || pumiceHtml || absorbHtml || nullifyHtml ? `<div class="status-effects" style="justify-content:center;margin-top:6px">${statusHtml}${pumiceHtml}${absorbHtml}${nullifyHtml}</div>` : ''}`;
 }
 
 function renderFieldEffects() {
@@ -2235,14 +2459,94 @@ function playPotion(potId) {
       else b.rivalBoostNextDef += eff.value;
       addLog('info', `🦎 Newt CP — ${myMon.name} braces up! +${eff.value} DEF on next hit`);
     }
+    if (eff.type === 'pumiceStoneConsume') {
+      if (!myMon.statusEffects || myMon.statusEffects.length === 0) {
+        addLog('info', `🪨 Pumice Stone CP — ${myMon.name} has no status effects to clear`);
+      } else {
+        const count = eff.count === Infinity ? myMon.statusEffects.length : Math.min(eff.count, myMon.statusEffects.length);
+        myMon.statusEffects.splice(0, count);
+        addLog('status', `🪨 Pumice Stone CP — cleared ${count} status effect${count !== 1 ? 's' : ''} from ${myMon.name}!`);
+      }
+    }
+    if (eff.type === 'sandDustConsume') {
+      myMon.absorbCharges = (myMon.absorbCharges || 0) + eff.charges;
+      addLog('status', `🦴🪨 Sand and Dust CP — ${myMon.name} can absorb ${eff.charges} free hit${eff.charges > 1 ? 's' : ''}! (${myMon.absorbCharges} total)`);
+    }
+    if (eff.type === 'wholeBananaConsume') {
+      const healed = Math.min(Math.floor(myMon.atk * eff.mult), myMon.maxHp - myMon.hp);
+      myMon.hp = Math.min(myMon.maxHp, myMon.hp + healed);
+      addLog('heal', `🍌✨ Whole Banana CP — ${myMon.name} converts ${myMon.atk} ATK into +${healed}hp! → ${myMon.hp}/${myMon.maxHp}hp`);
+    }
+    if (eff.type === 'theBananaConsume') {
+      const halfAtk = Math.floor(myMon.atk / 2);
+      const lostAtk = myMon.atk - halfAtk;
+      const healed = Math.min(Math.floor(lostAtk * eff.mult), myMon.maxHp - myMon.hp);
+      myMon.atk = halfAtk;
+      myMon.hp = Math.min(myMon.maxHp, myMon.hp + healed);
+      addLog('info', `🍌🍌 The Banana CP — ${myMon.name} trades ${lostAtk} ATK for +${healed}hp! (${myMon.atk} ATK remaining, ${myMon.hp}/${myMon.maxHp}hp)`);
+    }
+    if (eff.type === 'bambooConsume') {
+      const playerIdx = isPlayerOne ? 0 : 1;
+      const selectedIdx = G.players[playerIdx].selectedMonkeyIdx;
+      // Apply to base monkey so it persists between battles
+      G.players[playerIdx].monkeys[selectedIdx].atk += eff.value;
+      myMon.atk += eff.value;
+      addLog('status', `🎋 Bamboo CP — ${myMon.name} gains +${eff.value} permanent base ATK! (now ${myMon.atk} ATK)`);
+    }
+    if (eff.type === 'coconutJuiceConsume') {
+      const playerIdx = isPlayerOne ? 0 : 1;
+      const currentAtk = myMon.atk;
+      const converted = currentAtk - 1; // ATK set to 1, so converted amount = ATK - 1
+      const payout = eff.ratio < 1
+        ? Math.floor(converted / 2) // Lv1: +1🍌 per 2 ATK
+        : Math.floor(converted * eff.ratio); // Lv2/3: +ratio🍌 per ATK
+      myMon.atk = 1;
+      G.players[playerIdx].bananas += payout;
+      addLog('info', `🥥 Coconut Juice CP — ${myMon.name} converts ${converted} ATK → +${payout}🍌! ATK set to 1.`);
+    }
     if (eff.type === 'bonesConsume') {
       if (isPlayerOne) b.playerOneDmgReduction = eff.value;
       else b.rivalDmgReduction = eff.value;
       addLog('info', `🦴 Bones CP — ${myMon.name} braces for ${eff.value}% damage reduction on next hit`);
     }
+    if (eff.type === 'fireFigConsume') {
+      if (isPlayerOne) b.playerOneBoostNextAtk += eff.value;
+      else b.rivalBoostNextAtk += eff.value;
+      if (isPlayerOne) b.playerOneBurnChance = eff.burnChance;
+      else b.rivalBurnChance = eff.burnChance;
+      addLog('info', `🔥 Fire Fig CP — ${myMon.name} charges a fire punch! +${eff.value} dmg, ${eff.burnChance}% burn chance`);
+    }
+
+    // Soup Ladle — all CPs also heal 3hp
+    const playerIdx = isPlayerOne ? 0 : 1;
+    const hasSoupLadle = G.players[playerIdx].inventory.brewingTools?.soup_ladle;
+    if (hasSoupLadle) {
+      const ladle_healed = Math.min(3, myMon.maxHp - myMon.hp);
+      if (ladle_healed > 0) {
+        myMon.hp += ladle_healed;
+        addLog('heal', `🫙 Soup Ladle — ${myMon.name} heals +${ladle_healed}hp from the ladle! → ${myMon.hp}/${myMon.maxHp}hp`);
+      }
+    }
   }
 
   if (pot.type === 'splash') {
+    // Sand and Dust Spell — nullify incoming splashes
+    const splashTarget = isPlayerOne ? b.rivalMon : b.playerOneMon;
+    if (splashTarget.splashNullifyTurns > 0) {
+      splashTarget.splashNullifyTurns--;
+      addLog('status', `🦴🪨 Sand and Dust Spell — ${splashTarget.name} nullifies the incoming splash! (${splashTarget.splashNullifyTurns} turn${splashTarget.splashNullifyTurns !== 1 ? 's' : ''} left)`);
+      advanceBattlePhase();
+      return;
+    }
+    if (eff.type === 'fireFigSplash') {
+      const hit = Math.random() * 100 < eff.chance;
+      if (hit) {
+        applyBurn(enemyMon, eff.turns);
+        addLog('status', `🔥 Fire Fig SP — ${eff.chance}% roll succeeded! ${enemyMon.name} is burning for ${eff.turns} turn${eff.turns > 1 ? 's' : ''}!`);
+      } else {
+        addLog('info', `🔥 Fire Fig SP — ${eff.chance}% roll failed, fire fizzles out`);
+      }
+    }
     if (eff.type === 'spiderEyeSplash') {
       const hit = Math.random() * 100 < eff.chance;
       if (hit) {
@@ -2262,6 +2566,63 @@ function playPotion(potId) {
     if (eff.type === 'bonesSplash') {
       b.fieldEffects.push({ icon: pot.icon, name: 'Bones Hazard', turnsLeft: Infinity, effect: eff, target: isPlayerOne ? 'rival' : 'playerOne' });
       addLog('status', `🦴 Bones SP — bones scattered on field! 60% chance to deal ${eff.value} dmg to ${enemyMon.name} when they attack (permanent)`);
+    }
+    if (eff.type === 'pumiceStoneSplash') {
+      const myTarget = isPlayerOne ? 'playerOne' : 'rival';
+      const before = b.fieldEffects.filter(fe => fe.target === myTarget || !fe.target).length;
+      if (before === 0) {
+        addLog('info', `🪨 Pumice Stone SP — no field effects to clear on your side`);
+      } else {
+        const count = eff.count === Infinity ? Infinity : eff.count;
+        let cleared = 0;
+        b.fieldEffects = b.fieldEffects.filter(fe => {
+          if ((fe.target === myTarget || !fe.target) && cleared < count) {
+            cleared++;
+            return false;
+          }
+          return true;
+        });
+        addLog('status', `🪨 Pumice Stone SP — cleared ${cleared} field effect${cleared !== 1 ? 's' : ''} from your side!`);
+      }
+    }
+    if (eff.type === 'sandDustSplash') {
+      b.fieldEffects.push({ icon: pot.icon, name: 'Sand and Dust Evasion', turnsLeft: Infinity, effect: eff, target: isPlayerOne ? 'playerOne' : 'rival' });
+      addLog('status', `🦴🪨 Sand and Dust SP — dust cloud settles! ${myMon.name} has ${eff.chance}% chance to dodge attacks (permanent)`);
+    }
+    if (eff.type === 'wholeBananaSplash') {
+      b.fieldEffects.push({ icon: pot.icon, name: 'Whole Banana Heal', turnsLeft: eff.turns, effect: eff, target: isPlayerOne ? 'playerOne' : 'rival' });
+      addLog('heal', `🍌✨ Whole Banana SP — golden banana lands! 40% chance to fully heal ${myMon.name} each turn for ${eff.turns} turns`);
+    }
+    if (eff.type === 'theBananaSplash') {
+      if (Math.random() * 100 < eff.chance) {
+        const healed = Math.min(eff.value, myMon.maxHp - myMon.hp);
+        myMon.hp += healed;
+        addLog('heal', `🍌🍌 The Banana SP — 50% roll succeeded! ${myMon.name} heals ${healed}hp → ${myMon.hp}/${myMon.maxHp}hp`);
+      } else {
+        addLog('info', `🍌🍌 The Banana SP — 50% roll failed, banana missed`);
+      }
+    }
+    if (eff.type === 'bambooSplash') {
+      const enemyTarget = isPlayerOne ? 'rival' : 'playerOne';
+      // Find the most impactful enemy splash field effect to negate
+      const enemyEffects = b.fieldEffects.filter(fe => fe.target === enemyTarget && fe.effect.value !== undefined);
+      if (enemyEffects.length === 0) {
+        addLog('info', `🎋 Bamboo SP — no active enemy field effects to negate`);
+      } else {
+        const target = enemyEffects[enemyEffects.length - 1]; // most recent
+        const orig = target.effect.value;
+        if (eff.pct === 100) {
+          b.fieldEffects = b.fieldEffects.filter(fe => fe !== target);
+          addLog('status', `🎋 Bamboo SP — ${100}% negation! ${target.name} completely neutralised!`);
+        } else {
+          target.effect.value = Math.max(0, Math.floor(orig * (1 - eff.pct / 100)));
+          addLog('status', `🎋 Bamboo SP — ${eff.pct}% negation! ${target.name} reduced from ${orig} to ${target.effect.value}`);
+        }
+      }
+    }
+    if (eff.type === 'coconutJuiceSplash') {
+      b.fieldEffects.push({ icon: pot.icon, name: 'Coconut Money Pile', turnsLeft: Infinity, effect: eff, target: isPlayerOne ? 'playerOne' : 'rival' });
+      addLog('info', `🥥 Coconut Juice SP — money pile lands! ${myMon.name} earns +${eff.value}🍌 each time they attack (permanent)`);
     }
     if (eff.type === 'newtSplash') {
       b.fieldEffects.push({ icon: pot.icon, name: 'Newt DEF Debuff', turnsLeft: eff.turns, effect: eff, target: isPlayerOne ? 'rival' : 'playerOne' });
@@ -2295,12 +2656,23 @@ function advanceBattlePhase() {
   }
 }
 
+function applyBurn(mon, turns = 1) {
+  if (!mon.statusEffects) mon.statusEffects = [];
+  // Stack burn: if already burning, extend duration
+  const existing = mon.statusEffects.find(se => se.type === 'burn');
+  if (existing) {
+    existing.turns = Math.max(existing.turns, turns);
+  } else {
+    mon.statusEffects.push({ type: 'burn', turns });
+  }
+}
+
 function resolveAttacks() {
   const b = G.battle;
   b.phase = 'resolving';
   addLog('system', `━━━ Turn ${b.turn} ━━━ ${b.playerOneMon.spd >= b.rivalMon.spd ? b.playerOneMon.name+' attacks first (higher SPD)' : b.rivalMon.name+' attacks first (higher SPD)'}`);
   flushPendingLogs();
-  // Heal field
+  // Heal field (Banana Peel SP)
   if (b.healField.active && b.healField.turnsLeft > 0) {
     const target = b.healField.target === 'playerOne' ? b.playerOneMon : b.rivalMon;
     const healed = Math.min(b.healField.value, target.maxHp - target.hp);
@@ -2309,6 +2681,18 @@ function resolveAttacks() {
     if (b.healField.turnsLeft <= 0) b.healField.active = false;
     addLog('heal', `🍌 Banana Peel field — heals ${target.name} for ${healed}hp → ${target.hp}/${target.maxHp}hp (${b.healField.turnsLeft} turn${b.healField.turnsLeft !== 1 ? 's' : ''} left)`);
   }
+
+  // Whole Banana SP — 40% re-roll each turn for full heal
+  b.fieldEffects.filter(fe => fe.effect.type === 'wholeBananaSplash').forEach(fe => {
+    const mon = fe.target === 'playerOne' ? b.playerOneMon : b.rivalMon;
+    if (Math.random() * 100 < fe.effect.chance) {
+      const healed = mon.maxHp - mon.hp;
+      mon.hp = mon.maxHp;
+      addLog('heal', `🍌✨ Whole Banana field — 40% roll succeeded! ${mon.name} fully heals for ${healed}hp!`);
+    } else {
+      addLog('info', `🍌✨ Whole Banana field — 40% roll failed (${fe.turnsLeft - 1} turn${fe.turnsLeft - 1 !== 1 ? 's' : ''} left)`);
+    }
+  });
 
   // Determine attack order by speed
   const playerOneAttacksFirst = b.playerOneMon.spd >= b.rivalMon.spd;
@@ -2342,6 +2726,13 @@ function resolveAttacks() {
       addLog('status', `🕷️ Spider Eye SP — ${aMon.name}'s attack negated, no damage dealt`);
       if (isPlayerOne) { b.playerOneNegateAtk = false; b.playerOneBoostNextAtk = 0; }
       else { b.rivalNegateAtk = false; b.rivalBoostNextAtk = 0; }
+      continue;
+    }
+
+    // Sand and Dust SP — evasion miss chance
+    const evasionField = b.fieldEffects.find(fe => fe.effect.type === 'sandDustSplash' && fe.target === (isPlayerOne ? 'rival' : 'playerOne'));
+    if (evasionField && Math.random() * 100 < evasionField.effect.chance) {
+      addLog('status', `🦴🪨 Sand and Dust — ${dMon.name} dodges! (${evasionField.effect.chance}% evasion)`);
       continue;
     }
 
@@ -2398,14 +2789,45 @@ function resolveAttacks() {
     const isCrit = Math.random() < 0.01;
     if (isCrit) { actualDmg *= 2; addLog('status', `💥 Critical hit! Damage doubled to ${actualDmg}!`); }
 
-    // Death buffer
-    if (deathBuf && dMon.hp - actualDmg <= 0) {
+    // Death buffer — absorb charge first, then Pumice Stone, then Newt SP
+    if (dMon.absorbCharges > 0) {
+      dMon.absorbCharges--;
+      addLog('status', `🦴🪨 Sand and Dust CP — ${dMon.name} absorbs the hit! (${dMon.absorbCharges} charge${dMon.absorbCharges !== 1 ? 's' : ''} left)`);
+    } else if (dMon.pumiceCharges > 0 && dMon.hp - actualDmg <= 0) {
+      dMon.hp = Math.max(1, Math.floor(dMon.hp / 2));
+      dMon.atk = Math.max(1, Math.floor(dMon.atk / 2));
+      dMon.pumiceCharges--;
+      addLog('status', `🪨 Pumice Stone Spell — ${dMon.name} survives the death blow! ATK halved. (${dMon.pumiceCharges} charge${dMon.pumiceCharges !== 1 ? 's' : ''} left)`);
+    } else if (deathBuf && dMon.hp - actualDmg <= 0) {
       addLog('info', `🦎 Newt SP — death buffer activates! ${dMon.name} would have died, survives at 1hp instead`);
       dMon.hp = 1;
       if (isPlayerOne) b.rivalDeathBuffer = false; else b.playerOneDeathBuffer = false;
     } else {
       dMon.hp = Math.max(0, dMon.hp - actualDmg);
       addLog('dmg', `⚔️ ${aMon.name} hits ${dMon.name} for ${actualDmg} dmg → ${dMon.hp}/${dMon.maxHp}hp remaining`);
+
+      // Fire Fig Spell — chance to burn on each attack
+      const fireFigSpell = aMon.spells && aMon.spells.find(s => s.effect.type === 'fireFigSpell');
+      if (fireFigSpell && Math.random() * 100 < fireFigSpell.effect.chance) {
+        applyBurn(dMon, 1);
+        addLog('status', `🔥 Fire Fig Spell — ${aMon.name}'s attack ignites! ${dMon.name} is burned!`);
+      }
+
+      // Fire Fig CP — burn chance stored from potion phase
+      const burnChance = isPlayerOne ? b.playerOneBurnChance : b.rivalBurnChance;
+      if (burnChance > 0 && Math.random() * 100 < burnChance) {
+        applyBurn(dMon, 1);
+        addLog('status', `🔥 Fire Fig CP — fire punch ignites! ${dMon.name} is burned!`);
+      }
+      if (isPlayerOne) b.playerOneBurnChance = 0; else b.rivalBurnChance = 0;
+
+      // Coconut Juice SP — pay out bananas when attacker steps on their money pile
+      const coconutField = b.fieldEffects.find(fe => fe.effect.type === 'coconutJuiceSplash' && fe.target === attacker);
+      if (coconutField) {
+        const playerIdx = isPlayerOne ? 0 : 1;
+        G.players[playerIdx].bananas += coconutField.effect.value;
+        addLog('info', `🥥 Coconut Juice SP — ${aMon.name} earns +${coconutField.effect.value}🍌 from money pile! (${G.players[playerIdx].bananas}🍌 total)`);
+      }
     }
 
     // Status effect ticks
@@ -2444,7 +2866,7 @@ function resolveAttacks() {
 
   // Check win condition
   if (playerOneDead || rivalDead) {
-    endBattle(playerOneDead, rivalDead);
+    monkeyDied(playerOneDead, rivalDead);
     return;
   }
 
@@ -2456,22 +2878,75 @@ function resolveAttacks() {
   renderBattleScreen();
 }
 
-function endBattle(playerOneDead, rivalDead) {
+function monkeyDied(playerOneDead, rivalDead) {
+  const b = G.battle;
+
+  // Handle simultaneous deaths — both take next monkey or end
+  if (playerOneDead) {
+    b.playerOneMonIdx++;
+    if (b.playerOneMonIdx < b.playerOneTeam.length) {
+      const next = b.playerOneTeam[b.playerOneMonIdx];
+      applyBattleStartSpells(G.players[0], next, 0);
+      b.playerOneMon = next;
+      addLog('system', `💨 ${next.name} steps up for you!`);
+    }
+  }
+  if (rivalDead) {
+    b.rivalMonIdx++;
+    if (b.rivalMonIdx < b.rivalTeam.length) {
+      const next = b.rivalTeam[b.rivalMonIdx];
+      applyBattleStartSpells(G.players[1], next, 1);
+      b.rivalMon = next;
+      addLog('system', `💨 ${next.name} steps up for Rival Wizard!`);
+    }
+  }
+
+  const playerOneWiped = b.playerOneMonIdx >= b.playerOneTeam.length;
+  const rivalWiped = b.rivalMonIdx >= b.rivalTeam.length;
+
+  if (playerOneWiped || rivalWiped) {
+    endBattle(playerOneWiped, rivalWiped);
+    return;
+  }
+
+  // Reset per-monkey battle state — field effects persist
+  b.playerOneNegateAtk = false;
+  b.rivalNegateAtk = false;
+  b.playerOneDmgReduction = 0;
+  b.rivalDmgReduction = 0;
+  b.playerOneDeathBuffer = false;
+  b.rivalDeathBuffer = false;
+  b.playerOneBoostNextAtk = 0;
+  b.rivalBoostNextAtk = 0;
+  b.playerOneBoostNextDef = 0;
+  b.rivalBoostNextDef = 0;
+  b.playerOneBurnChance = 0;
+  b.rivalBurnChance = 0;
+  b.healField = { active: false, value: 0, turnsLeft: 0, target: '' };
+
+  addLog('system', `⚔️ Next up: ${b.playerOneMon.name} vs ${b.rivalMon.name}`);
+  b.phase = 'playerOneTurn';
+  b.turn++;
+  document.getElementById('turn-counter').textContent = b.turn;
+  renderBattleScreen();
+}
+
+function endBattle(playerOneWiped, rivalWiped) {
   const b = G.battle;
   b.phase = 'done';
   renderBattleScreen();
 
   let winnerId, loserId;
-  if (playerOneDead && rivalDead) {
+  if (playerOneWiped && rivalWiped) {
     winnerId = b.playerOneMon.spd >= b.rivalMon.spd ? 0 : 1;
     loserId = 1 - winnerId;
-    addLog('system', `Both monkeys fall! ${G.players[winnerId].name} wins on SPD tiebreak!`);
-  } else if (playerOneDead) {
+    addLog('system', `Both teams wiped! ${G.players[winnerId].name} wins on SPD tiebreak!`);
+  } else if (playerOneWiped) {
     winnerId = 1; loserId = 0;
-    addLog('system', `${b.playerOneMon.name} has fallen! Rival Wizard wins!`);
+    addLog('system', `Your team has been defeated! Rival Wizard wins!`);
   } else {
     winnerId = 0; loserId = 1;
-    addLog('system', `${b.rivalMon.name} has fallen! You win!`);
+    addLog('system', `Rival team defeated! You win!`);
   }
 
   // Payout

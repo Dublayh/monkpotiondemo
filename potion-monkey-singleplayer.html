@@ -857,6 +857,20 @@
   </div>
 </div>
 
+<!-- Debug overlay -->
+<div id="debug-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;overflow-y:auto;padding:20px">
+  <div style="max-width:600px;margin:0 auto;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:Fredoka,sans-serif;font-size:20px;color:var(--accent2)">🔍 AI Debug</div>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('debug-overlay').style.display='none'">✕ Close</button>
+    </div>
+    <div id="debug-content" style="font-size:12px;font-family:monospace;line-height:1.8;color:var(--text2)"></div>
+  </div>
+</div>
+
+<!-- Fixed debug button -->
+<button onclick="showAIDebug()" style="position:fixed;bottom:12px;right:12px;z-index:9000;background:rgba(30,30,40,0.85);border:1px solid var(--border);color:var(--text3);font-size:10px;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:monospace">🔍 AI</button>
+
 <!-- ============================================================
      SCREEN: RESULT
      ============================================================ -->
@@ -2031,13 +2045,17 @@ function aiPrep() {
 
   ai.shopRoll = rollShop();
 
+  // Don't clear spells — they're permanent like the player's spells
+  // Just clear battle potions (continueAfterBattle already removed used brewedPotions)
+  ai.battlePotions = [];
+
   const strongest = ai.monkeys.reduce((best, m) =>
     (m.atk + m.def + m.spd) > (best.atk + best.def + best.spd) ? m : best, ai.monkeys[0]);
   const dominant = getDominantStat(strongest);
 
   aiShop(ai, strongest, dominant);
   aiBrew(ai, strongest, dominant);
-  aiAssignSpellsTeam(ai);
+  aiAssignSpellsTeam(ai);  // only assigns newly brewed spells to monkeys with open slots
   aiOrderTeam(ai);
   aiLoadBattle(ai);
 }
@@ -2057,9 +2075,6 @@ function aiOrderTeam(ai) {
 function aiShop(ai, mon, dominant) {
   let budget = ai.bananas;
 
-  if (budget >= 2) { ai.inventory.consume_flask++; budget -= 2; }
-  if (budget >= 2) { ai.inventory.splash_flask++; budget -= 2; }
-
   const w1Priorities = { atk: ['spider_eye', 'newt'], def: ['bones', 'banana_peel', 'spirit_water'], spd: ['spider_eye', 'spirit_water', 'bones'] };
   const w2Priorities = { atk: ['fire_fig', 'bamboo', 'coconut_juice'], def: ['pumice_stone', 'the_banana'], spd: ['fire_fig', 'coconut_juice'] };
   const preferred = [...(w1Priorities[dominant] || []), ...(w2Priorities[dominant] || [])];
@@ -2068,24 +2083,47 @@ function aiShop(ai, mon, dominant) {
   const w1Roll = Array.isArray(roll) ? roll : (roll.w1 || []);
   const w2Roll = Array.isArray(roll) ? [] : (roll.w2 || []);
 
+  // In World 2+, buy W2 ingredients first (they're better but pricier — prioritise them)
+  // then fill remaining budget with W1 ingredients
+  if (w2Roll.length > 0) {
+    w2Roll.forEach(ingId => {
+      const ing = WORLD_2_INGREDIENTS[ingId];
+      if (!ing || budget < ing.cost) return;
+      if (preferred.includes(ingId) || Math.random() < 0.8) {
+        if (!ai.inventory.ingredients_w2) ai.inventory.ingredients_w2 = {};
+        ai.inventory.ingredients_w2[ingId] = (ai.inventory.ingredients_w2[ingId] || 0) + 1;
+        budget -= ing.cost;
+      }
+    });
+  }
+
+  // Buy W1 ingredients with remaining budget
   w1Roll.forEach(ingId => {
     const ing = INGREDIENTS[ingId];
     if (!ing || budget < ing.cost) return;
-    if (preferred.includes(ingId) || Math.random() < 0.5) {
+    if (preferred.includes(ingId) || Math.random() < 0.8) {
       ai.inventory.ingredients[ingId] = (ai.inventory.ingredients[ingId] || 0) + 1;
       budget -= ing.cost;
     }
   });
 
-  w2Roll.forEach(ingId => {
-    const ing = WORLD_2_INGREDIENTS[ingId];
-    if (!ing || budget < ing.cost) return;
-    if (preferred.includes(ingId) || Math.random() < 0.5) {
-      if (!ai.inventory.ingredients_w2) ai.inventory.ingredients_w2 = {};
-      ai.inventory.ingredients_w2[ingId] = (ai.inventory.ingredients_w2[ingId] || 0) + 1;
-      budget -= ing.cost;
-    }
-  });
+  // Now count how many CP and SP brews we're likely to make,
+  // and buy only as many flasks as needed (max 2 of each)
+  const ingCount = Object.values(ai.inventory.ingredients).reduce((s, v) => s + v, 0)
+                 + Object.values(ai.inventory.ingredients_w2 || {}).reduce((s, v) => s + v, 0);
+  const needConsume = Math.min(2, Math.ceil(ingCount / 2));
+  const needSplash  = Math.min(2, Math.floor(ingCount / 2));
+
+  for (let i = 0; i < needConsume; i++) {
+    if (budget >= 2) { ai.inventory.consume_flask++; budget -= 2; }
+  }
+  for (let i = 0; i < needSplash; i++) {
+    if (budget >= 2) { ai.inventory.splash_flask++; budget -= 2; }
+  }
+
+  // Fallback: always have at least 1 of each if we can afford it
+  if (ai.inventory.consume_flask === 0 && budget >= 2) { ai.inventory.consume_flask++; budget -= 2; }
+  if (ai.inventory.splash_flask  === 0 && budget >= 2) { ai.inventory.splash_flask++;  budget -= 2; }
 
   ai.bananas = budget;
 }
@@ -2101,6 +2139,11 @@ function aiBrew(ai, mon, dominant) {
     ...w2Entries.filter(e => e.id === 'spirit_water')
   ];
 
+  // Hard cap: total spell slots = 3 per monkey
+  const maxSpells = ai.monkeys.length * 3;
+  // Count spells already permanently on monkeys from previous levels
+  const existingSpellCount = ai.monkeys.reduce((sum, m) => sum + m.spells.length, 0);
+
   allEntries.forEach(({ id, count }) => {
     if (count <= 0) return;
     const ing = getIngredient(id);
@@ -2109,8 +2152,18 @@ function aiBrew(ai, mon, dominant) {
     let type = chooseBrewType(id, dominant, ai);
     if (!type) return;
 
+    // If we're at spell capacity, force to consume or splash instead
+    const currentSpells = existingSpellCount + ai.brewedPotions.filter(p => p.type === 'spell').length;
+    if (type === 'spell' && currentSpells >= maxSpells) {
+      if (ai.inventory.consume_flask > 0) type = 'consume';
+      else if (ai.inventory.splash_flask > 0) type = 'splash';
+      else return;
+    }
+
     if (type === 'consume' && ai.inventory.consume_flask <= 0) type = 'spell';
     if (type === 'splash' && ai.inventory.splash_flask <= 0) type = 'spell';
+    // Re-check spell cap after fallback
+    if (type === 'spell' && existingSpellCount + ai.brewedPotions.filter(p => p.type === 'spell').length >= maxSpells) return;
 
     const lv = Math.min(count, 3);
     const effect = ing.effects[type](lv);
@@ -2120,38 +2173,66 @@ function aiBrew(ai, mon, dominant) {
       ingredientId: id,
       name: `${ing.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'}`,
       icon: ing.icon,
-      type,
-      level: lv,
-      effect
+      type, level: lv, effect
     };
-
     ai.brewedPotions.push(potion);
-    // Decrement from correct inventory
-    if (ai.inventory.ingredients[id]) ai.inventory.ingredients[id] = 0;
-    else if (ai.inventory.ingredients_w2?.[id]) ai.inventory.ingredients_w2[id] = 0;
-
     if (type === 'splash') ai.inventory.splash_flask--;
+    if (type === 'consume') ai.inventory.consume_flask--;
+
+    // Use remaining ingredients (if count > 3) for a second potion of a different type
+    const remaining = count - lv;
+    if (remaining > 0) {
+      const altTypes = ['spell', 'consume', 'splash'].filter(t => t !== type);
+      for (const altType of altTypes) {
+        if (altType === 'spell' && existingSpellCount + ai.brewedPotions.filter(p => p.type === 'spell').length >= maxSpells) continue;
+        if (altType === 'consume' && ai.inventory.consume_flask <= 0) continue;
+        if (altType === 'splash' && ai.inventory.splash_flask <= 0) continue;
+        const altLv = Math.min(remaining, 3);
+        const altEffect = ing.effects[altType](altLv);
+        ai.brewedPotions.push({
+          id: `ai_${id}_${altType}_${Date.now()}_${Math.random()}`,
+          ingredientId: id,
+          name: `${ing.name} ${altType === 'spell' ? 'Spell' : altType === 'consume' ? 'Consumable' : 'Splash'}`,
+          icon: ing.icon,
+          type: altType, level: altLv, effect: altEffect
+        });
+        if (altType === 'splash') ai.inventory.splash_flask--;
+        if (altType === 'consume') ai.inventory.consume_flask--;
+        break;
+      }
+    }
+
+    // Zero out inventory
+    if (ai.inventory.ingredients[id] !== undefined) ai.inventory.ingredients[id] = 0;
+    else if (ai.inventory.ingredients_w2?.[id] !== undefined) ai.inventory.ingredients_w2[id] = 0;
   });
 }
 
 function chooseBrewType(ingId, dominant, ai) {
+  // For each ingredient, determine the primary brew type based on dominant stat.
+  // Deliberately mix spell/consume/splash so the AI always has battle potions.
   const typeMap = {
-    banana_peel: { atk: 'consume', def: 'spell', spd: 'splash' },
-    spider_eye:  { atk: 'consume', def: 'splash', spd: 'spell' },
-    newt:        { atk: 'splash', def: 'spell',   spd: 'consume' },
-    bones:       { atk: 'splash', def: 'spell',   spd: 'splash' },
-    spirit_water:{ atk: 'consume', def: 'splash', spd: 'consume' },
+    banana_peel: { atk: 'consume', def: 'consume', spd: 'splash' },
+    spider_eye:  { atk: 'consume', def: 'splash',  spd: 'spell'  },
+    newt:        { atk: 'splash',  def: 'consume', spd: 'consume' },
+    bones:       { atk: 'splash',  def: 'consume', spd: 'splash'  },
+    spirit_water:{ atk: 'consume', def: 'splash',  spd: 'consume' },
     // World 2
-    fire_fig:    { atk: 'consume', def: 'splash', spd: 'spell' },
-    the_banana:  { atk: 'consume', def: 'spell',  spd: 'splash' },
-    pumice_stone:{ atk: 'spell',   def: 'spell',  spd: 'consume' },
-    coconut_juice:{ atk: 'splash', def: 'consume', spd: 'splash' },
-    bamboo:      { atk: 'consume', def: 'spell',  spd: 'splash' }
+    fire_fig:    { atk: 'consume', def: 'splash',  spd: 'spell'  },
+    the_banana:  { atk: 'consume', def: 'spell',   spd: 'splash'  },
+    pumice_stone:{ atk: 'spell',   def: 'spell',   spd: 'consume' },
+    coconut_juice:{ atk: 'splash', def: 'consume', spd: 'splash'  },
+    bamboo:      { atk: 'consume', def: 'spell',   spd: 'splash'  }
   };
   let type = typeMap[ingId]?.[dominant] || 'spell';
 
-  // Spirit Water brews last so brewedPotions is fully populated —
-  // only pick a battle potion type if we actually have one to boost
+  // Bones: first brew as splash (hazard field), extras as consume (dmg reduction)
+  if (ingId === 'bones') {
+    const existingBones = ai.brewedPotions.filter(p => p.ingredientId === 'bones');
+    type = existingBones.length === 0 ? 'splash' : 'consume';
+  }
+
+  // Spirit Water: only pick a battle type if we have a potion to boost
   if (ingId === 'spirit_water') {
     const hasConsume = ai.brewedPotions.some(p => p.type === 'consume');
     const hasSplash = ai.brewedPotions.some(p => p.type === 'splash');
@@ -2163,21 +2244,38 @@ function chooseBrewType(ingId, dominant, ai) {
 }
 
 function aiAssignSpellsTeam(ai) {
-  const spells = ai.brewedPotions.filter(p => p.type === 'spell');
-  if (spells.length === 0) return;
+  // Only assign spells brewed THIS level — not ones already on monkeys from previous levels
+  const alreadyAssigned = new Set(ai.monkeys.flatMap(m => m.spells.map(s => s.id)));
+  const newSpells = ai.brewedPotions.filter(p => p.type === 'spell' && !alreadyAssigned.has(p.id));
+  if (newSpells.length === 0) return;
 
   const byDef = [...ai.monkeys].sort((a,b) => (b.def + b.maxHp) - (a.def + a.maxHp));
   const byAtk = [...ai.monkeys].sort((a,b) => b.atk - a.atk);
 
-  spells.forEach(spell => {
+  // Assign non-Spirit-Water spells first, Spirit Water last
+  const sortedSpells = [
+    ...newSpells.filter(s => s.effect.type !== 'spiritWaterSpell'),
+    ...newSpells.filter(s => s.effect.type === 'spiritWaterSpell')
+  ];
+
+  const assigned = new Set(); // track spell ids already assigned
+
+  sortedSpells.forEach(spell => {
+    if (assigned.has(spell.id)) return; // don't assign same spell twice
     const eff = spell.effect;
     let target = null;
 
     if (eff.type === 'bananaPeelSpell' || eff.type === 'newtSpell' || eff.type === 'pumiceStoneSpell' ||
-        eff.type === 'theBananaSpell' || eff.type === 'wholeBananaSpell' || eff.type === 'sandDustSpell') {
+        eff.type === 'theBananaSpell' || eff.type === 'wholeBananaSpell' || eff.type === 'sandDustSpell' ||
+        eff.type === 'bonesSpell') {
       target = byDef.find(m => m.spells.length < 3);
     } else if (eff.type === 'spiderEyeSpell' || eff.type === 'fireFigSpell' || eff.type === 'bambooSpell') {
       target = byAtk.find(m => m.spells.length < 3);
+    } else if (eff.type === 'spiritWaterSpell') {
+      target = [...ai.monkeys]
+        .filter(m => m.spells.some(s => ['spiderEyeSpell','newtSpell','bananaPeelSpell','fireFigSpell'].includes(s.effect.type)) && m.spells.length < 3)
+        .sort((a,b) => b.spells.length - a.spells.length)[0]
+        || ai.monkeys.find(m => m.spells.length < 3);
     } else if (eff.type === 'coconutJuiceSpell') {
       target = ai.monkeys.find(m => m.spells.some(s => s.effect.type === 'spiderEyeSpell') && m.spells.length < 3)
                || ai.monkeys.find(m => m.spells.length < 3);
@@ -2186,6 +2284,18 @@ function aiAssignSpellsTeam(ai) {
     }
 
     if (!target) return;
+    assigned.add(spell.id);
+
+    if (eff.type === 'spiritWaterSpell') {
+      const statTypes = ['spiderEyeSpell','newtSpell','bananaPeelSpell','fireFigSpell','theBananaSpell','wholeBananaSpell'];
+      const insertBefore = target.spells.findIndex(s => statTypes.includes(s.effect.type));
+      if (insertBefore >= 0) {
+        target.spells.splice(insertBefore, 0, spell);
+      } else {
+        target.spells.push(spell);
+      }
+      return;
+    }
 
     if (eff.type === 'bananaPeelSpell') { target.maxHp += eff.value; target.hp = target.maxHp; }
     if (eff.type === 'spiderEyeSpell') target.atk += eff.value;
@@ -2211,7 +2321,7 @@ function aiLoadBattle(ai) {
     return 0;
   });
 
-  battlePots.slice(0, 4).forEach(pot => {
+  battlePots.slice(0, 6).forEach(pot => {
     ai.battlePotions.push(pot);
   });
 }
@@ -2247,6 +2357,11 @@ function aiChoosePotion() {
       if (eff.type === 'spiderEyeSplash' && hpPct < 0.5) score = 70;
       else if (eff.type === 'spiderEyeSplash') score = 45;
       else if (eff.type === 'bonesSplash') score = 55;
+      else if (eff.type === 'pumiceStoneSplash') {
+        // Only useful if there are field effects on the AI's side to clear
+        const aiSideEffects = b.fieldEffects.filter(fe => fe.target === 'rival' || !fe.target);
+        score = aiSideEffects.length > 0 ? 70 : -999;
+      }
       else if (eff.type === 'bananaPeelSplash' && hpPct >= 1.0) score = -999;
       else if (eff.type === 'bananaPeelSplash' && hpPct < 0.6) score = 55;
       else if (eff.type === 'newtSplash') {
@@ -2254,8 +2369,10 @@ function aiChoosePotion() {
         score = hasAtkBoost ? 75 : 45;
       }
       else if (eff.type === 'spiritWaterSplash') {
-        const hasOtherSplash = available.some(p => p.id !== pot.id && p.type === 'splash');
-        score = hasOtherSplash ? 50 : -999;
+        // Only useful if there's another unused splash to boost AND no boost already pending
+        const hasOtherSplash = available.some(p => p.id !== pot.id && p.type === 'splash' && !p.used);
+        const boostAlreadyPending = b.rivalSplashBoost > 0;
+        score = (hasOtherSplash && !boostAlreadyPending) ? 50 : -999;
       }
       else if (eff.type === 'fireFigSplash') score = 60;
       else if (eff.type === 'coconutJuiceSplash') score = 55;
@@ -2290,8 +2407,15 @@ function aiChoosePotion() {
       // Damage reduction more valuable on last mon
       else if (eff.type === 'bonesConsume' && (hpPct < 0.4 || isLastMon)) score = 75;
       else if (eff.type === 'spiritWaterConsume') {
-        const hasOtherConsume = available.some(p => p.id !== pot.id && p.type === 'consume');
-        score = hasOtherConsume ? 50 : -999;
+        // Only useful if there's another unused consume to boost AND no boost already pending
+        const hasOtherConsume = available.some(p => p.id !== pot.id && p.type === 'consume' && !p.used);
+        const boostAlreadyPending = b.rivalConsumeBoost > 0;
+        score = (hasOtherConsume && !boostAlreadyPending) ? 50 : -999;
+      }
+      else if (eff.type === 'pumiceStoneConsume') {
+        // Only useful if AI monkey actually has status effects to clear
+        const hasStatus = aiMon.statusEffects && aiMon.statusEffects.length > 0;
+        score = hasStatus ? 85 : -999;
       }
       else if (eff.type === 'fireFigConsume' && canKill) score = 85;
       else if (eff.type === 'fireFigConsume') score = isLastMon ? 75 : 65;
@@ -2310,15 +2434,15 @@ function aiChoosePotion() {
     // On last mon with low HP, urgency bonus for all potions
     if (isLastMon && hpPct < 0.3 && score > 0) score += 15;
 
-    // Only add variance if score is meaningful
-    if (score > 0) score += Math.random() * 15;
+    // Small variance so AI isn't perfectly predictable but still plays well
+    if (score > 0) score += Math.random() * 5;
 
     if (score > bestScore) { bestScore = score; best = pot; }
   });
 
-  // Skip threshold — lower when on last monkey (use potions more freely)
-  const skipThreshold = isLastMon ? 15 : 30;
-  if (bestScore < skipThreshold && Math.random() < 0.5) {
+  // Skip threshold — lower when on last monkey
+  const skipThreshold = isLastMon ? 10 : 20;
+  if (bestScore < skipThreshold && Math.random() < 0.3) {
     addLog('system', `Rival Wizard attacks!`);
     skipPotion();
     return;
@@ -2352,7 +2476,18 @@ function applyBattleStartSpells(player, monCopy, playerIdx) {
     }
   });
 
-  // Coconut Juice Spell — pay out bananas based on spell ATK points
+  // Spirit Water Spell — boost the next spell in slot order by pct%, minimum +1
+  monCopy.spells && monCopy.spells.forEach((spell, idx) => {
+    if (spell.effect.type === 'spiritWaterSpell' && idx < monCopy.spells.length - 1) {
+      const next = monCopy.spells[idx + 1];
+      if (next && next.effect.value !== undefined) {
+        const boost = Math.ceil(next.effect.value * spell.effect.value / 100);
+        next.effect.value += boost;
+        next.effect.desc = next.effect.desc + ` (+${boost} from 💧 Spirit Water)`;
+        addLog('system', `💧 Spirit Water Spell — ${monCopy.name}'s ${next.name} boosted by +${boost} (${spell.effect.value}%)!`);
+      }
+    }
+  });
   monCopy.spells && monCopy.spells.forEach(spell => {
     if (spell.effect.type === 'coconutJuiceSpell') {
       const spellAtk = monCopy.spells.reduce((sum, s) => s.effect.type === 'spiderEyeSpell' ? sum + s.effect.value : sum, 0);
@@ -2410,6 +2545,10 @@ function startBattle() {
     rivalBurnChance: 0,
     playerOneCoconutPayout: 0,
     rivalCoconutPayout: 0,
+    playerOneSplashBoost: 0,
+    rivalSplashBoost: 0,
+    playerOneConsumeBoost: 0,
+    rivalConsumeBoost: 0,
     healField: { active: false, value: 0, turnsLeft: 0, target: '' },
     pendingLogs: []
   };
@@ -2561,7 +2700,21 @@ function playPotion(potId) {
   const eff = pot.effect;
 
   if (pot.type === 'consume') {
-    if (eff.type === 'bananaPeelConsume') {
+    // Spirit Water CP — apply pending consume boost to this potion's value
+    const consumeBoost = isPlayerOne ? b.playerOneConsumeBoost : b.rivalConsumeBoost;
+    if (consumeBoost > 0 && eff.value !== undefined) {
+      const bonus = Math.ceil(eff.value * consumeBoost / 100);
+      eff.value += bonus;
+      addLog('info', `💧 Spirit Water CP — ${myMon.name}'s ${pot.name} boosted by +${bonus} (${consumeBoost}%)!`);
+      if (isPlayerOne) b.playerOneConsumeBoost = 0; else b.rivalConsumeBoost = 0;
+    } else if (consumeBoost > 0) {
+      if (isPlayerOne) b.playerOneConsumeBoost = 0; else b.rivalConsumeBoost = 0;
+    }
+    if (eff.type === 'spiritWaterConsume') {
+      if (isPlayerOne) b.playerOneConsumeBoost = eff.value;
+      else b.rivalConsumeBoost = eff.value;
+      addLog('info', `💧 Spirit Water CP — ${myMon.name} primes the next consumable for +${eff.value}% boost!`);
+    } else if (eff.type === 'bananaPeelConsume') {
       const healed = Math.min(eff.value, myMon.maxHp - myMon.hp);
       myMon.hp += healed;
       addLog('heal', `🍌 Banana Peel CP — ${myMon.name} recovers ${healed}hp → ${myMon.hp}/${myMon.maxHp}hp`);
@@ -2652,6 +2805,26 @@ function playPotion(potId) {
     if (splashTarget.splashNullifyTurns > 0) {
       splashTarget.splashNullifyTurns--;
       addLog('status', `🦴🪨 Sand and Dust Spell — ${splashTarget.name} nullifies the incoming splash! (${splashTarget.splashNullifyTurns} turn${splashTarget.splashNullifyTurns !== 1 ? 's' : ''} left)`);
+      advanceBattlePhase();
+      return;
+    }
+
+    // Spirit Water SP — apply pending splash boost to this potion's value
+    if (eff.type !== 'spiritWaterSplash') {
+      const splashBoost = isPlayerOne ? b.playerOneSplashBoost : b.rivalSplashBoost;
+      if (splashBoost > 0 && eff.value !== undefined) {
+        const bonus = Math.ceil(eff.value * splashBoost / 100);
+        eff.value += bonus;
+        addLog('info', `💧 Spirit Water SP — ${myMon.name}'s ${pot.name} boosted by +${bonus} (${splashBoost}%)!`);
+      }
+      if (splashBoost > 0) {
+        if (isPlayerOne) b.playerOneSplashBoost = 0; else b.rivalSplashBoost = 0;
+      }
+    }
+    if (eff.type === 'spiritWaterSplash') {
+      if (isPlayerOne) b.playerOneSplashBoost = eff.value;
+      else b.rivalSplashBoost = eff.value;
+      addLog('info', `💧 Spirit Water SP — ${myMon.name} primes the next splash for +${eff.value}% boost!`);
       advanceBattlePhase();
       return;
     }
@@ -2826,16 +2999,18 @@ function resolveAttacks() {
     const dmgRedPct = isPlayerOne ? b.rivalDmgReduction : b.playerOneDmgReduction;
     const deathBuf = isPlayerOne ? b.rivalDeathBuffer : b.playerOneDeathBuffer;
 
-    // Check Bones Spell — nullify chance scales with level (33/50/66%)
-    const bonesSpell = dMon.spells && dMon.spells.find(s => s.effect.type === 'bonesSpell');
-    if (bonesSpell && boost > 0) {
+    // Check Bones Spell — cumulative probability across all equipped Bones Spells
+    // Formula: combined = 1 - (1-p1)(1-p2)(1-p3) — diminishing returns, can't reach 100%
+    const bonesSpells = dMon.spells && dMon.spells.filter(s => s.effect.type === 'bonesSpell');
+    if (bonesSpells && bonesSpells.length > 0 && boost > 0) {
+      const combinedChance = (1 - bonesSpells.reduce((prod, s) => prod * (1 - s.effect.chance / 100), 1)) * 100;
       const nullifyRoll = Math.random() * 100;
-      if (nullifyRoll < bonesSpell.effect.chance) {
+      if (nullifyRoll < combinedChance) {
         boost = 0;
         if (isPlayerOne) b.playerOneBoostNextAtk = 0; else b.rivalBoostNextAtk = 0;
-        addLog('status', `🦴 Bones Spell — ${dMon.name}'s exoskeleton nullifies ${aMon.name}'s battle potion boost! (${bonesSpell.effect.chance}% roll succeeded)`);
+        addLog('status', `🦴 Bones Spell — ${dMon.name}'s exoskeleton nullifies ${aMon.name}'s boost! (${Math.round(combinedChance)}% combined chance, ${bonesSpells.length} spell${bonesSpells.length > 1 ? 's' : ''})`);
       } else {
-        addLog('info', `🦴 Bones Spell — ${bonesSpell.effect.chance}% nullify roll failed, ${aMon.name}'s boost stands`);
+        addLog('info', `🦴 Bones Spell — ${Math.round(combinedChance)}% nullify roll failed, ${aMon.name}'s boost stands`);
       }
     }
 
@@ -2923,11 +3098,14 @@ function resolveAttacks() {
       dMon.hp = Math.max(0, dMon.hp - actualDmg);
       addLog('dmg', `⚔️ ${aMon.name} hits ${dMon.name} for ${actualDmg} dmg → ${dMon.hp}/${dMon.maxHp}hp remaining`);
 
-      // Fire Fig Spell — chance to burn on each attack
-      const fireFigSpell = aMon.spells && aMon.spells.find(s => s.effect.type === 'fireFigSpell');
-      if (fireFigSpell && Math.random() * 100 < fireFigSpell.effect.chance) {
-        applyBurn(dMon, 1);
-        addLog('status', `🔥 Fire Fig Spell — ${aMon.name}'s attack ignites! ${dMon.name} is burned!`);
+      // Fire Fig Spell — cumulative burn chance across all Fire Fig Spells on attacker
+      const fireFigSpells = aMon.spells && aMon.spells.filter(s => s.effect.type === 'fireFigSpell');
+      if (fireFigSpells && fireFigSpells.length > 0) {
+        const combinedBurnChance = (1 - fireFigSpells.reduce((prod, s) => prod * (1 - s.effect.chance / 100), 1)) * 100;
+        if (Math.random() * 100 < combinedBurnChance) {
+          applyBurn(dMon, 1);
+          addLog('status', `🔥 Fire Fig Spell — ${aMon.name}'s attack ignites! ${dMon.name} is burned! (${Math.round(combinedBurnChance)}% combined chance)`);
+        }
       }
 
       // Fire Fig CP — burn chance stored from potion phase
@@ -3462,6 +3640,66 @@ async function trackGameSession(winnerId, loserId) {
     p1_bananas: G.players[0].bananas,
     p2_bananas: G.players[1].bananas
   });
+}
+
+function showAIDebug() {
+  const ai = G.players[1];
+  const b = G.battle;
+  let html = '';
+
+  // Monkeys + spells
+  html += `<div style="color:var(--accent2);margin-bottom:8px">🐵 TEAM (${ai.monkeys.length} monkeys)</div>`;
+  ai.monkeys.forEach((mon, i) => {
+    const active = b && b.rivalTeam && i === b.rivalMonIdx;
+    html += `<div style="margin-bottom:8px;padding:8px;background:var(--card2);border-radius:6px;${active ? 'border:1px solid var(--accent2)' : ''}">`;
+    html += `<span style="color:var(--text1)">${mon.icon} ${mon.name}</span> ${active ? '<span style="color:var(--accent2)">[active]</span>' : ''}<br>`;
+    html += `Lv${mon.level} · ❤️${mon.hp}/${mon.maxHp} · ⚔️${mon.atk} · 🛡${mon.def} · 💨${mon.spd}`;
+    if (mon.pumiceCharges) html += ` · 🪨×${mon.pumiceCharges}`;
+    if (mon.splashNullifyTurns) html += ` · 🚫💦${mon.splashNullifyTurns}t`;
+    if (mon.spells.length > 0) {
+      html += `<br><span style="color:var(--spell)">Spells:</span> `;
+      html += mon.spells.map(s => `${iconInline(s.icon,12)} ${s.name} Lv${s.level} — ${s.effect.desc}`).join(' | ');
+    } else {
+      html += `<br><span style="color:var(--text3)">No spells</span>`;
+    }
+    html += `</div>`;
+  });
+
+  // Battle potions
+  const battlePots = b ? b.rivalPotions : ai.battlePotions;
+  html += `<div style="color:var(--accent2);margin:12px 0 8px">🧪 BATTLE POTIONS (${battlePots.length})</div>`;
+  if (battlePots.length === 0) {
+    html += `<span style="color:var(--text3)">None loaded</span>`;
+  } else {
+    battlePots.forEach(pot => {
+      const used = pot.used ? ' <span style="color:var(--red)">[used]</span>' : '';
+      const typeColor = pot.type === 'consume' ? 'var(--consume)' : 'var(--splash)';
+      html += `<div style="margin-bottom:4px">${iconInline(pot.icon,12)} <span style="color:${typeColor}">${pot.name} Lv${pot.level}</span>${used} — ${pot.effect.desc}</div>`;
+    });
+  }
+
+  // All brewed potions
+  html += `<div style="color:var(--accent2);margin:12px 0 8px">⚗️ ALL BREWED (${ai.brewedPotions.length})</div>`;
+  ai.brewedPotions.forEach(pot => {
+    const typeColor = pot.type === 'spell' ? 'var(--spell)' : pot.type === 'consume' ? 'var(--consume)' : 'var(--splash)';
+    html += `<div style="margin-bottom:2px">${iconInline(pot.icon,12)} <span style="color:${typeColor}">${pot.name} Lv${pot.level}</span> — ${pot.effect.desc}</div>`;
+  });
+
+  // Inventory
+  html += `<div style="color:var(--accent2);margin:12px 0 8px">🎒 INVENTORY</div>`;
+  html += `🧪×${ai.inventory.consume_flask || 0} 💦×${ai.inventory.splash_flask || 0} 🍌${ai.bananas}<br>`;
+  const ingEntries = [
+    ...Object.entries(ai.inventory.ingredients || {}).filter(([,v]) => v > 0).map(([k,v]) => `${k}×${v}`),
+    ...Object.entries(ai.inventory.ingredients_w2 || {}).filter(([,v]) => v > 0).map(([k,v]) => `${k}×${v}[W2]`)
+  ];
+  html += ingEntries.length ? ingEntries.join(', ') : '<span style="color:var(--text3)">No ingredients</span>';
+
+  if (Object.keys(ai.inventory.brewingTools || {}).length > 0) {
+    html += `<br>Tools: ${Object.keys(ai.inventory.brewingTools).join(', ')}`;
+  }
+
+  document.getElementById('debug-content').innerHTML = html;
+  document.getElementById('debug-overlay').style.display = 'block';
 }
 
 // ============================================================

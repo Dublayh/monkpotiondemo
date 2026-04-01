@@ -2046,6 +2046,19 @@ function applyBattleStartSpells(player, monCopy, playerIdx) {
       }
     }
   });
+
+  // Spirit Water Spell — boost the next spell in slot order, minimum +1
+  monCopy.spells && monCopy.spells.forEach((spell, idx) => {
+    if (spell.effect.type === 'spiritWaterSpell' && idx < monCopy.spells.length - 1) {
+      const next = monCopy.spells[idx + 1];
+      if (next && next.effect.value !== undefined) {
+        const boost = Math.ceil(next.effect.value * spell.effect.value / 100);
+        next.effect.value += boost;
+        next.effect.desc = next.effect.desc + ` (+${boost} from 💧 Spirit Water)`;
+        addLog('system', `💧 Spirit Water Spell — ${monCopy.name}'s ${next.name} boosted by +${boost} (${spell.effect.value}%)!`);
+      }
+    }
+  });
 }
 
 function startBattle() {
@@ -2093,6 +2106,10 @@ function startBattle() {
     playerTwoBurnChance: 0,
     playerOneCoconutPayout: 0,
     playerTwoCoconutPayout: 0,
+    playerOneSplashBoost: 0,
+    playerTwoSplashBoost: 0,
+    playerOneConsumeBoost: 0,
+    playerTwoConsumeBoost: 0,
     healField: { active: false, value: 0, turnsLeft: 0, target: '' },
     pendingLogs: []
   };
@@ -2234,7 +2251,19 @@ function playPotion(potId) {
   const eff = pot.effect;
 
   if (pot.type === 'consume') {
-    if (eff.type === 'bananaPeelConsume') {
+    // Spirit Water CP — apply pending consume boost
+    const consumeBoost = isPlayerOne ? b.playerOneConsumeBoost : b.playerTwoConsumeBoost;
+    if (consumeBoost > 0 && eff.value !== undefined) {
+      const bonus = Math.ceil(eff.value * consumeBoost / 100);
+      eff.value += bonus;
+      addLog('info', `💧 Spirit Water CP — ${myMon.name}'s ${pot.name} boosted by +${bonus} (${consumeBoost}%)!`);
+    }
+    if (consumeBoost > 0) { if (isPlayerOne) b.playerOneConsumeBoost = 0; else b.playerTwoConsumeBoost = 0; }
+    if (eff.type === 'spiritWaterConsume') {
+      if (isPlayerOne) b.playerOneConsumeBoost = eff.value;
+      else b.playerTwoConsumeBoost = eff.value;
+      addLog('info', `💧 Spirit Water CP — ${myMon.name} primes the next consumable for +${eff.value}% boost!`);
+    } else if (eff.type === 'bananaPeelConsume') {
       const healed = Math.min(eff.value, myMon.maxHp - myMon.hp);
       myMon.hp += healed;
       addLog('heal', `🍌 Banana Peel CP — ${myMon.name} recovers ${healed}hp → ${myMon.hp}/${myMon.maxHp}hp`);
@@ -2324,6 +2353,24 @@ function playPotion(potId) {
     if (splashTarget.splashNullifyTurns > 0) {
       splashTarget.splashNullifyTurns--;
       addLog('status', `🦴🪨 Sand and Dust Spell — ${splashTarget.name} nullifies the incoming splash! (${splashTarget.splashNullifyTurns} turn${splashTarget.splashNullifyTurns !== 1 ? 's' : ''} left)`);
+      advanceBattlePhase();
+      return;
+    }
+
+    // Spirit Water SP — apply pending splash boost, or store if this IS the SW SP
+    if (eff.type !== 'spiritWaterSplash') {
+      const splashBoost = isPlayerOne ? b.playerOneSplashBoost : b.playerTwoSplashBoost;
+      if (splashBoost > 0 && eff.value !== undefined) {
+        const bonus = Math.ceil(eff.value * splashBoost / 100);
+        eff.value += bonus;
+        addLog('info', `💧 Spirit Water SP — ${myMon.name}'s ${pot.name} boosted by +${bonus} (${splashBoost}%)!`);
+      }
+      if (splashBoost > 0) { if (isPlayerOne) b.playerOneSplashBoost = 0; else b.playerTwoSplashBoost = 0; }
+    }
+    if (eff.type === 'spiritWaterSplash') {
+      if (isPlayerOne) b.playerOneSplashBoost = eff.value;
+      else b.playerTwoSplashBoost = eff.value;
+      addLog('info', `💧 Spirit Water SP — ${myMon.name} primes the next splash for +${eff.value}% boost!`);
       advanceBattlePhase();
       return;
     }
@@ -2491,16 +2538,18 @@ function resolveAttacks() {
     const dmgRedPct = isPlayerOne ? b.playerTwoDmgReduction : b.playerOneDmgReduction;
     const deathBuf = isPlayerOne ? b.playerTwoDeathBuffer : b.playerOneDeathBuffer;
 
-    // Check Bones Spell — nullify chance scales with level (33/50/66%)
-    const bonesSpell = dMon.spells && dMon.spells.find(s => s.effect.type === 'bonesSpell');
-    if (bonesSpell && boost > 0) {
+    // Check Bones Spell — cumulative probability across all equipped Bones Spells
+    // Formula: combined = 1 - (1-p1)(1-p2)(1-p3) — diminishing returns, can't reach 100%
+    const bonesSpells = dMon.spells && dMon.spells.filter(s => s.effect.type === 'bonesSpell');
+    if (bonesSpells && bonesSpells.length > 0 && boost > 0) {
+      const combinedChance = (1 - bonesSpells.reduce((prod, s) => prod * (1 - s.effect.chance / 100), 1)) * 100;
       const nullifyRoll = Math.random() * 100;
-      if (nullifyRoll < bonesSpell.effect.chance) {
+      if (nullifyRoll < combinedChance) {
         boost = 0;
         if (isPlayerOne) b.playerOneBoostNextAtk = 0; else b.playerTwoBoostNextAtk = 0;
-        addLog('status', `🦴 Bones Spell — ${dMon.name}'s exoskeleton nullifies ${aMon.name}'s battle potion boost! (${bonesSpell.effect.chance}% roll succeeded)`);
+        addLog('status', `🦴 Bones Spell — ${dMon.name}'s exoskeleton nullifies ${aMon.name}'s boost! (${Math.round(combinedChance)}% combined chance, ${bonesSpells.length} spell${bonesSpells.length > 1 ? 's' : ''})`);
       } else {
-        addLog('info', `🦴 Bones Spell — ${bonesSpell.effect.chance}% nullify roll failed, ${aMon.name}'s boost stands`);
+        addLog('info', `🦴 Bones Spell — ${Math.round(combinedChance)}% nullify roll failed, ${aMon.name}'s boost stands`);
       }
     }
 
@@ -2588,11 +2637,14 @@ function resolveAttacks() {
       dMon.hp = Math.max(0, dMon.hp - actualDmg);
       addLog('dmg', `⚔️ ${aMon.name} hits ${dMon.name} for ${actualDmg} dmg → ${dMon.hp}/${dMon.maxHp}hp remaining`);
 
-      // Fire Fig Spell — chance to burn on each attack
-      const fireFigSpell = aMon.spells && aMon.spells.find(s => s.effect.type === 'fireFigSpell');
-      if (fireFigSpell && Math.random() * 100 < fireFigSpell.effect.chance) {
-        applyBurn(dMon, 1);
-        addLog('status', `🔥 Fire Fig Spell — ${aMon.name}'s attack ignites! ${dMon.name} is burned!`);
+      // Fire Fig Spell — cumulative burn chance across all Fire Fig Spells on attacker
+      const fireFigSpells = aMon.spells && aMon.spells.filter(s => s.effect.type === 'fireFigSpell');
+      if (fireFigSpells && fireFigSpells.length > 0) {
+        const combinedBurnChance = (1 - fireFigSpells.reduce((prod, s) => prod * (1 - s.effect.chance / 100), 1)) * 100;
+        if (Math.random() * 100 < combinedBurnChance) {
+          applyBurn(dMon, 1);
+          addLog('status', `🔥 Fire Fig Spell — ${aMon.name}'s attack ignites! ${dMon.name} is burned! (${Math.round(combinedBurnChance)}% combined chance)`);
+        }
       }
 
       // Fire Fig CP — burn chance stored from potion phase

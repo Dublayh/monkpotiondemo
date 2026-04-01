@@ -2476,16 +2476,50 @@ function applyBattleStartSpells(player, monCopy, playerIdx) {
     }
   });
 
-  // Spirit Water Spell — boost the next spell in slot order by pct%, minimum +1
+  // Spirit Water Spell — boosts the next spell in slot order (place it BEFORE the spell to boost)
   monCopy.spells && monCopy.spells.forEach((spell, idx) => {
-    if (spell.effect.type === 'spiritWaterSpell' && idx < monCopy.spells.length - 1) {
-      const next = monCopy.spells[idx + 1];
-      if (next && next.effect.value !== undefined) {
-        const boost = Math.ceil(next.effect.value * spell.effect.value / 100);
-        next.effect.value += boost;
-        next.effect.desc = next.effect.desc + ` (+${boost} from 💧 Spirit Water)`;
-        addLog('system', `💧 Spirit Water Spell — ${monCopy.name}'s ${next.name} boosted by +${boost} (${spell.effect.value}%)!`);
+    if (spell.effect.type !== 'spiritWaterSpell') return;
+    const next = monCopy.spells[idx + 1];
+    if (!next) {
+      addLog('info', `💧 Spirit Water Spell — ${monCopy.name}: no spell after Spirit Water to boost! Move it before the spell you want to boost.`);
+      return;
+    }
+    const pct = spell.effect.value;
+    const eff = next.effect;
+    let boost = 0;
+
+    if (eff.value !== undefined) {
+      boost = Math.ceil(eff.value * pct / 100);
+      eff.value += boost;
+      if (eff.type === 'spiderEyeSpell') monCopy.atk += boost;
+      if (eff.type === 'newtSpell') monCopy.def += boost;
+      if (eff.type === 'bananaPeelSpell' || eff.type === 'theBananaSpell' || eff.type === 'wholeBananaSpell') {
+        monCopy.maxHp += boost; monCopy.hp = Math.min(monCopy.hp + boost, monCopy.maxHp);
       }
+    } else if (eff.chance !== undefined) {
+      boost = Math.ceil(eff.chance * pct / 100);
+      eff.chance = Math.min(95, eff.chance + boost);
+    } else if (eff.charges !== undefined) {
+      boost = Math.ceil(eff.charges * pct / 100);
+      eff.charges += boost;
+      monCopy.pumiceCharges = (monCopy.pumiceCharges || 0) + boost;
+    } else if (eff.turns !== undefined) {
+      boost = Math.ceil(eff.turns * pct / 100);
+      eff.turns += boost;
+      monCopy.splashNullifyTurns = (monCopy.splashNullifyTurns || 0) + boost;
+    } else if (eff.copyLevel !== undefined) {
+      boost = 1;
+      eff.copyLevel = Math.min(3, eff.copyLevel + boost);
+    } else if (eff.mult !== undefined) {
+      boost = Math.ceil(eff.mult * pct / 100);
+      eff.mult += boost;
+    }
+
+    if (boost > 0) {
+      eff.desc = eff.desc + ` (+${boost} from 💧 Spirit Water)`;
+      addLog('system', `💧 Spirit Water Spell — ${monCopy.name}'s ${next.name} boosted by +${boost} (${pct}%)!`);
+    } else {
+      addLog('info', `💧 Spirit Water Spell — ${monCopy.name}: ${next.name} has no boostable value.`);
     }
   });
   monCopy.spells && monCopy.spells.forEach(spell => {
@@ -3176,23 +3210,22 @@ function resolveAttacks() {
 function monkeyDied(playerOneDead, rivalDead) {
   const b = G.battle;
 
-  // Handle simultaneous deaths — both take next monkey or end
   if (playerOneDead) {
     b.playerOneMonIdx++;
     if (b.playerOneMonIdx < b.playerOneTeam.length) {
       const next = b.playerOneTeam[b.playerOneMonIdx];
-      applyBattleStartSpells(G.players[0], next, 0);
       b.playerOneMon = next;
       addLog('system', `💨 ${next.name} steps up for you!`);
+      applyBattleStartSpells(G.players[0], next, 0);
     }
   }
   if (rivalDead) {
     b.rivalMonIdx++;
     if (b.rivalMonIdx < b.rivalTeam.length) {
       const next = b.rivalTeam[b.rivalMonIdx];
-      applyBattleStartSpells(G.players[1], next, 1);
       b.rivalMon = next;
       addLog('system', `💨 ${next.name} steps up for Rival Wizard!`);
+      applyBattleStartSpells(G.players[1], next, 1);
     }
   }
 
@@ -3244,9 +3277,12 @@ function endBattle(playerOneWiped, rivalWiped) {
     addLog('system', `Rival team defeated! You win!`);
   }
 
-  // Payout
-  G.players[winnerId].bananas += 10;
-  G.players[loserId].bananas += 5;
+  // Player payout — normal rules
+  const playerEarned = winnerId === 0 ? 10 : 5;
+  G.players[0].bananas += playerEarned;
+
+  // AI always resets to 10🍌 — keeps it competitive regardless of win/loss streak
+  G.players[1].bananas = 10;
 
   trackGameSession(winnerId, loserId);
 
@@ -3262,18 +3298,15 @@ function endBattle(playerOneWiped, rivalWiped) {
 }
 
 function showResult(winnerId, loserId) {
-  const winner = G.players[winnerId];
-  const loser = G.players[loserId];
-
   // Restore all monkeys to full HP between levels
   G.players.forEach(p => p.monkeys.forEach(mon => { mon.hp = mon.maxHp; }));
 
-  document.getElementById('result-icon').textContent = winnerId === 0 ? '🎉' : '🏆';
-  document.getElementById('result-title').textContent = `${winner.name} Wins!`;
-  document.getElementById('result-sub').textContent = `+10🍌 earned · ${loser.name} gets +5🍌`;
+  const playerEarned = winnerId === 0 ? 10 : 5;
+  document.getElementById('result-icon').textContent = winnerId === 0 ? '🎉' : '😔';
+  document.getElementById('result-title').textContent = winnerId === 0 ? 'You Win!' : 'You Lose!';
+  document.getElementById('result-sub').textContent = `+${playerEarned}🍌 earned`;
   document.getElementById('result-details').innerHTML = `
-    ${winner.name}: ${winner.bananas}🍌 total<br>
-    ${loser.name}: ${loser.bananas}🍌 total<br>
+    You now have ${G.players[0].bananas}🍌<br>
     World ${G.world} Level ${G.level} complete!`;
 
   const btn = document.getElementById('result-continue-btn');

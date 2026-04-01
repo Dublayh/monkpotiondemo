@@ -390,8 +390,8 @@
     background: var(--card);
     border: 1px dashed var(--border);
     border-radius: 8px;
-    width: 64px;
-    height: 64px;
+    width: 72px;
+    height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -402,7 +402,8 @@
     cursor: pointer;
   }
   .brew-slot.filled { border-style: solid; border-color: var(--accent2); cursor: default; }
-  .brew-slot-icon { font-size: 24px; }
+  .brew-slot-icon { font-size: 24px; display:flex; align-items:center; justify-content:center; }
+  .brew-slot-icon img { width: 40px !important; height: 40px !important; object-fit: contain; }
   .brew-slot-name { font-size: 9px; text-align: center; color: var(--text2); }
 
   .brew-preview {
@@ -666,9 +667,15 @@
       <div class="card-title">🌋 Ingredients <span class="badge" style="background:var(--red)">world 2</span></div>
       <div class="shop-grid" id="ingredient-shop-w2"></div>
     </div>
-    <div class="card" id="brewing-tool-card" style="display:none">
-      <div class="card-title">🥄 Brewing Tool <span class="badge">world 2+</span></div>
-      <div class="shop-grid" id="brewing-tool-shop"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap" id="brewing-tool-cards" style="display:none">
+      <div class="card" id="spoon-card" style="display:none;flex:1;min-width:180px">
+        <div class="card-title">🧰 Tool <span class="badge">world 2+</span></div>
+        <div class="shop-grid" id="spoon-shop"></div>
+      </div>
+      <div class="card" id="cauldron-card" style="display:none;flex:1;min-width:180px">
+        <div class="card-title">🫕 Cauldron <span class="badge">world 2+</span></div>
+        <div class="shop-grid" id="cauldron-shop"></div>
+      </div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
       <div style="color:var(--text2);font-size:13px;align-self:center">Cart: <strong id="cart-count" style="color:var(--accent2)">0</strong> items · <strong id="cart-total" style="color:var(--accent2)">0🍌</strong></div>
@@ -885,9 +892,16 @@
 // GAME DATA
 // ============================================================
 
+// Helper: resize img icons for inline use; leaves emoji strings unchanged
+function iconInline(icon, size = 16) {
+  if (!icon || !icon.includes('<img')) return icon;
+  return icon.replace(/width:\d+px;height:\d+px/, `width:${size}px;height:${size}px`)
+             .replace(/style="([^"]*)"/, `style="$1;vertical-align:middle;margin-right:2px"`);
+}
+
 const INGREDIENTS = {
   banana_peel: {
-    id: 'banana_peel', name: 'Banana Peel', icon: '🍌', cost: 2,
+    id: 'banana_peel', name: 'Banana Peel', icon: '<img src="icons/ingredients/BananaPeel.gif" style="width:36px;height:36px;object-fit:contain;image-rendering:pixelated" alt="Banana Peel">', cost: 2,
     desc: 'Spell: +1/2/3 max HP · Splash: Heal 1/2/3hp/turn for 2 turns · Consume: Heal 3/4/5hp',
     effects: {
       spell: (lv) => ({ type: 'bananaPeelSpell', value: lv, desc: `+${lv} max HP` }),
@@ -1119,20 +1133,30 @@ function rollShop() {
   const w1Roll = [0,1,2].map(() => w1Keys[Math.floor(Math.random() * w1Keys.length)]);
 
   let w2Roll = null;
-  let toolRoll = null;
+  let spoonRoll = null;
+  let cauldronRoll = null;
   if ((G.world || 1) >= 2) {
     const w2Keys = Object.keys(WORLD_2_INGREDIENTS);
     w2Roll = [0,1,2].map(() => w2Keys[Math.floor(Math.random() * w2Keys.length)]);
-    // One brewing tool per shop — only roll ones not yet owned
+
     const p = G.players[G.activePlayer] || G.players[0];
-    const ownedTools = p.inventory.brewingTools || {};
-    const availableTools = Object.keys(BREWING_TOOLS).filter(t => !ownedTools[t]);
-    toolRoll = availableTools.length > 0
-      ? availableTools[Math.floor(Math.random() * availableTools.length)]
+    const owned = p.inventory.brewingTools || {};
+
+    const SPOONS = ['plastic_spoon', 'soup_ladle', 'halloween_bucket'];
+    const CAULDRONS = ['stainless_pot'];
+
+    const availableSpoons = SPOONS.filter(t => !owned[t]);
+    const availableCauldrons = CAULDRONS.filter(t => !owned[t]);
+
+    spoonRoll = availableSpoons.length > 0
+      ? availableSpoons[Math.floor(Math.random() * availableSpoons.length)]
+      : null;
+    cauldronRoll = availableCauldrons.length > 0
+      ? availableCauldrons[Math.floor(Math.random() * availableCauldrons.length)]
       : null;
   }
 
-  return { w1: w1Roll, w2: w2Roll, tool: toolRoll };
+  return { w1: w1Roll, w2: w2Roll, spoon: spoonRoll, cauldron: cauldronRoll };
 }
 
 function showScreen(id) {
@@ -1175,7 +1199,7 @@ function renderShop() {
             <span style="font-size:12px;font-weight:700;color:var(--accent3)">🛡 ${mon.def} DEF</span>
             <span style="font-size:12px;font-weight:700;color:var(--yellow)">💨 ${mon.spd} SPD</span>
           </div>
-          ${mon.spells.length > 0 ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${mon.spells.map(s => `<span style="font-size:10px;background:var(--spell-bg);border:1px solid var(--spell-border);color:var(--spell);padding:2px 6px;border-radius:6px">${s.icon} ${s.name}</span>`).join('')}</div>` : ''}
+          ${mon.spells.length > 0 ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${mon.spells.map(s => `<span style="font-size:10px;background:var(--spell-bg);border:1px solid var(--spell-border);color:var(--spell);padding:2px 6px;border-radius:6px">${iconInline(s.icon,14)} ${s.name}</span>`).join('')}</div>` : ''}
         </div>
       </div>`;
   });
@@ -1226,7 +1250,9 @@ function renderShop() {
 
   // World 2 ingredients (only in World 2+)
   const w2Card = document.getElementById('w2-ingredient-card');
-  const toolCard = document.getElementById('brewing-tool-card');
+  const spoonCard = document.getElementById('spoon-card');
+  const cauldronCard = document.getElementById('cauldron-card');
+  const toolCardsWrapper = document.getElementById('brewing-tool-cards');
   if ((G.world || 1) >= 2 && p.shopRoll.w2) {
     w2Card.style.display = 'block';
     const is2 = document.getElementById('ingredient-shop-w2');
@@ -1253,27 +1279,38 @@ function renderShop() {
         </div>`;
     });
 
-    // Brewing tool slot
-    if (p.shopRoll.tool) {
-      const tool = BREWING_TOOLS[p.shopRoll.tool];
-      const ownedTools = p.inventory.brewingTools || {};
-      const alreadyOwned = ownedTools[p.shopRoll.tool];
-      const toolPurchased = p.purchasedSlots && p.purchasedSlots.includes('tool');
-      toolCard.style.display = 'block';
-      document.getElementById('brewing-tool-shop').innerHTML = alreadyOwned || toolPurchased ? '' : `
-        <div class="shop-item" onclick="addToCart('tool','${tool.id}','tool')">
+    // Spoon slot
+    const owned = p.inventory.brewingTools || {};
+    const renderToolSlot = (rollId, slotKey, containerId, cardEl) => {
+      if (!rollId) { cardEl.style.display = 'none'; return; }
+      const tool = BREWING_TOOLS[rollId];
+      const alreadyOwned = owned[rollId];
+      const purchased = p.purchasedSlots && p.purchasedSlots.includes(slotKey);
+      cardEl.style.display = 'block';
+      const inCart = p.cart.some(c => c.slotIdx === slotKey);
+      document.getElementById(containerId).innerHTML = alreadyOwned || purchased ? `<p style="color:var(--text3);font-size:12px">Already owned</p>` : `
+        <div class="shop-item ${inCart ? 'selected' : ''}" onclick="addToCart('tool','${tool.id}','${slotKey}')">
           <div class="shop-item-type type-ingredient" style="background:var(--accent3)">tool</div>
           <div class="shop-item-icon">${tool.icon}</div>
           <div class="shop-item-name">${tool.name}</div>
           <div class="shop-item-cost">${tool.cost}🍌</div>
           <div class="shop-item-desc">${tool.desc}</div>
+          ${inCart ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</div>` : ''}
         </div>`;
+    };
+
+    if (p.shopRoll.spoon || p.shopRoll.cauldron) {
+      toolCardsWrapper.style.display = 'flex';
     } else {
-      toolCard.style.display = 'none';
+      toolCardsWrapper.style.display = 'none';
     }
+    renderToolSlot(p.shopRoll.spoon, 'tool_spoon', 'spoon-shop', spoonCard);
+    renderToolSlot(p.shopRoll.cauldron, 'tool_cauldron', 'cauldron-shop', cauldronCard);
   } else {
     w2Card.style.display = 'none';
-    toolCard.style.display = 'none';
+    toolCardsWrapper.style.display = 'none';
+    spoonCard.style.display = 'none';
+    cauldronCard.style.display = 'none';
   }
 
   updateCartDisplay();
@@ -1306,9 +1343,9 @@ function addToCart(type, id, slotIdx) {
     }
     p.cart.push({ type, id, cost, slotIdx });
   } else if (type === 'tool') {
-    const alreadyInCart = p.cart.some(c => c.slotIdx === 'tool');
-    if (alreadyInCart) { p.cart = p.cart.filter(c => c.slotIdx !== 'tool'); renderShop(); return; }
-    p.cart.push({ type, id, cost, slotIdx: 'tool' });
+    const alreadyInCart = p.cart.some(c => c.slotIdx === slotIdx);
+    if (alreadyInCart) { p.cart = p.cart.filter(c => c.slotIdx !== slotIdx); renderShop(); return; }
+    p.cart.push({ type, id, cost, slotIdx });
   } else {
     p.cart.push({ type, id, cost });
   }
@@ -1573,13 +1610,13 @@ function updateBrewPreview() {
     const ing = getIngredient(id);
     const lv = G.cauldron.ingredients.length;
     const effect = ing.effects[type](lv);
-    name = `${ing.icon} ${ing.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'} · Level ${lv}`;
+    name = `${iconInline(ing.icon,16)} ${ing.name} ${type === 'spell' ? 'Spell' : type === 'consume' ? 'Consumable' : 'Splash'} · Level ${lv}`;
     icon = '';
     desc = effect.desc;
   }
   preview.style.display = 'block';
   preview.innerHTML = `
-    <div class="brew-preview-title">${icon} ${name}</div>
+    <div class="brew-preview-title">${iconInline(icon, 16)} ${name}</div>
     <div class="brew-preview-effects">${desc}</div>`;
   document.getElementById('brew-btn').disabled = false;
 }
@@ -1679,7 +1716,7 @@ function renderBrewedList() {
     const typeColor = pot.type === 'spell' ? 'var(--spell)' : pot.type === 'consume' ? 'var(--consume)' : 'var(--splash)';
     list.innerHTML += `
       <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px">
-        <span style="font-size:20px">${pot.icon}</span>
+        <span style="font-size:20px">${iconInline(pot.icon,20)}</span>
         <div style="flex:1">
           <div style="font-size:13px;font-weight:700">${pot.name} <span style="color:var(--text3);font-size:11px">Lv${pot.level}</span></div>
           <div style="font-size:11px;color:var(--text2)">${pot.effect.desc}</div>
@@ -1733,7 +1770,7 @@ function renderSpellbook() {
                 ondragover="event.preventDefault()"
                 ondrop="dropSpell(event,${mIdx},${i})"
                 title="Drag to reorder">
-                ☰ ${spell.icon} ${spell.name} Lv${spell.level}
+                ☰ ${iconInline(spell.icon,14)} ${spell.name} Lv${spell.level}
               </div>`;
             }
             return `<div class="spell-slot empty"
@@ -1758,7 +1795,7 @@ function renderSpellbook() {
   unassigned.forEach(spell => {
     availDiv.innerHTML += `
       <div style="background:var(--spell-bg);border:1px solid var(--spell-border);border-radius:8px;padding:8px 10px;cursor:pointer" onclick="showSpellAssignMenu('${spell.id}')">
-        <div style="font-size:13px;font-weight:700;color:var(--spell)">${spell.icon} ${spell.name} Lv${spell.level}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--spell)">${iconInline(spell.icon,16)} ${spell.name} Lv${spell.level}</div>
         <div style="font-size:11px;color:var(--text2)">${spell.effect.desc}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:4px">Click to assign →</div>
       </div>`;
@@ -1781,7 +1818,7 @@ function showSpellAssignMenu(spellId) {
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:999';
   overlay.innerHTML = `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:320px;width:90%">
-      <div style="font-family:Fredoka,sans-serif;font-size:18px;margin-bottom:12px">Assign ${spell.icon} ${spell.name}</div>
+      <div style="font-family:Fredoka,sans-serif;font-size:18px;margin-bottom:12px">Assign ${iconInline(spell.icon,18)} ${spell.name}</div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${options}</div>
       <button class="btn btn-secondary btn-sm" onclick="this.closest('.overlay-el').remove()">Cancel</button>
     </div>`;
@@ -1888,7 +1925,7 @@ function renderLoadout() {
             <span style="color:var(--accent3)">🛡 ${mon.def}</span>
             <span style="color:var(--yellow)">💨 ${mon.spd}</span>
           </div>
-          ${mon.spells.length > 0 ? `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${mon.spells.map(s => `<span style="font-size:10px;background:var(--spell-bg);border:1px solid var(--spell-border);color:var(--spell);padding:1px 5px;border-radius:5px">${s.icon} ${s.name}</span>`).join('')}</div>` : ''}
+          ${mon.spells.length > 0 ? `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${mon.spells.map(s => `<span style="font-size:10px;background:var(--spell-bg);border:1px solid var(--spell-border);color:var(--spell);padding:1px 5px;border-radius:5px">${iconInline(s.icon,14)} ${s.name}</span>`).join('')}</div>` : ''}
         </div>
       </div>`;
   });
@@ -1908,7 +1945,7 @@ function renderLoadout() {
     const typeColor = pot.type === 'consume' ? 'var(--consume)' : 'var(--splash)';
     potDiv.innerHTML += `
       <div style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer" onclick="addToBattleInv('${pot.id}')">
-        <span style="font-size:18px">${pot.icon}</span>
+        <span style="font-size:18px">${iconInline(pot.icon,18)}</span>
         <div style="flex:1"><div style="font-size:12px;font-weight:700">${pot.name} Lv${pot.level}</div><div style="font-size:11px;color:var(--text2)">${pot.effect.desc}</div></div>
         <span style="font-size:10px;font-weight:700;color:${typeColor}">${pot.type}</span>
         <button class="btn btn-secondary btn-sm">+Add</button>
@@ -1954,7 +1991,7 @@ function renderBattleGrid() {
       grid.innerHTML += `
         <div class="inv-cell occupied ${typeClass}">
           <div class="inv-cell-content">
-            <span class="inv-cell-icon">${pot.icon}</span>
+            <span class="inv-cell-icon">${iconInline(pot.icon,20)}</span>
             <span class="inv-cell-label">${pot.type === 'consume' ? 'CP' : 'SP'}</span>
           </div>
         </div>`;
@@ -1991,29 +2028,30 @@ function finishLoadout() {
 
 function aiPrep() {
   const ai = G.players[1];
-  const mon = ai.monkeys[0];
 
-  // Determine AI's dominant stat to build around
-  const dominant = getDominantStat(mon);
-
-  // AI shops — roll its own 3 ingredients, buy what fits its strategy
   ai.shopRoll = rollShop();
-  aiShop(ai, mon, dominant);
 
-  // AI brews all purchased ingredients into potions
-  aiBrew(ai, mon, dominant);
+  const strongest = ai.monkeys.reduce((best, m) =>
+    (m.atk + m.def + m.spd) > (best.atk + best.def + best.spd) ? m : best, ai.monkeys[0]);
+  const dominant = getDominantStat(strongest);
 
-  // AI assigns spells to monkey
-  aiAssignSpells(ai, mon);
-
-  // AI loads battle potions
+  aiShop(ai, strongest, dominant);
+  aiBrew(ai, strongest, dominant);
+  aiAssignSpellsTeam(ai);
+  aiOrderTeam(ai);
   aiLoadBattle(ai);
 }
 
 function getDominantStat(mon) {
-  // Find highest non-HP stat, use it to guide build
   const stats = { atk: mon.atk, def: mon.def, spd: mon.spd };
   return Object.entries(stats).sort((a,b) => b[1]-a[1])[0][0];
+}
+
+function aiOrderTeam(ai) {
+  ai.monkeys.sort((a, b) => {
+    if (b.spd !== a.spd) return b.spd - a.spd;
+    return (b.atk + b.def + b.spd) - (a.atk + a.def + a.spd);
+  });
 }
 
 function aiShop(ai, mon, dominant) {
@@ -2124,21 +2162,55 @@ function chooseBrewType(ingId, dominant, ai) {
   return type;
 }
 
-function aiAssignSpells(ai, mon) {
+function aiAssignSpellsTeam(ai) {
   const spells = ai.brewedPotions.filter(p => p.type === 'spell');
+  if (spells.length === 0) return;
+
+  const byDef = [...ai.monkeys].sort((a,b) => (b.def + b.maxHp) - (a.def + a.maxHp));
+  const byAtk = [...ai.monkeys].sort((a,b) => b.atk - a.atk);
+
   spells.forEach(spell => {
-    if (mon.spells.length >= 3) return;
     const eff = spell.effect;
-    if (eff.type === 'bananaPeelSpell') { mon.maxHp += eff.value; mon.hp = mon.maxHp; }
-    if (eff.type === 'spiderEyeSpell') { mon.atk += eff.value; }
-    if (eff.type === 'newtSpell') { mon.def += eff.value; }
-    mon.spells.push(spell);
+    let target = null;
+
+    if (eff.type === 'bananaPeelSpell' || eff.type === 'newtSpell' || eff.type === 'pumiceStoneSpell' ||
+        eff.type === 'theBananaSpell' || eff.type === 'wholeBananaSpell' || eff.type === 'sandDustSpell') {
+      target = byDef.find(m => m.spells.length < 3);
+    } else if (eff.type === 'spiderEyeSpell' || eff.type === 'fireFigSpell' || eff.type === 'bambooSpell') {
+      target = byAtk.find(m => m.spells.length < 3);
+    } else if (eff.type === 'coconutJuiceSpell') {
+      target = ai.monkeys.find(m => m.spells.some(s => s.effect.type === 'spiderEyeSpell') && m.spells.length < 3)
+               || ai.monkeys.find(m => m.spells.length < 3);
+    } else {
+      target = [...ai.monkeys].sort((a,b) => a.spells.length - b.spells.length).find(m => m.spells.length < 3);
+    }
+
+    if (!target) return;
+
+    if (eff.type === 'bananaPeelSpell') { target.maxHp += eff.value; target.hp = target.maxHp; }
+    if (eff.type === 'spiderEyeSpell') target.atk += eff.value;
+    if (eff.type === 'newtSpell') target.def += eff.value;
+    if (eff.type === 'pumiceStoneSpell') target.pumiceCharges = (target.pumiceCharges || 0) + eff.charges;
+    if (eff.type === 'theBananaSpell' || eff.type === 'wholeBananaSpell') { target.maxHp += eff.value; target.hp = target.maxHp; }
+    if (eff.type === 'sandDustSpell') target.splashNullifyTurns = (target.splashNullifyTurns || 0) + eff.turns;
+    target.spells.push(spell);
   });
 }
 
 function aiLoadBattle(ai) {
-  // Load up to 4 battle potions (max 8 slots of 9)
   const battlePots = ai.brewedPotions.filter(p => p.type !== 'spell');
+  const avgHpPct = ai.monkeys.reduce((sum, m) => sum + m.hp / m.maxHp, 0) / ai.monkeys.length;
+
+  battlePots.sort((a, b) => {
+    const aIsHeal = a.effect.type === 'bananaPeelConsume' || a.effect.type === 'wholeBananaConsume';
+    const bIsHeal = b.effect.type === 'bananaPeelConsume' || b.effect.type === 'wholeBananaConsume';
+    if (avgHpPct < 0.5) {
+      if (aIsHeal && !bIsHeal) return -1;
+      if (!aIsHeal && bIsHeal) return 1;
+    }
+    return 0;
+  });
+
   battlePots.slice(0, 4).forEach(pot => {
     ai.battlePotions.push(pot);
   });
@@ -2156,6 +2228,12 @@ function aiChoosePotion() {
 
   const hpPct = aiMon.hp / aiMon.maxHp;
   const canKill = (playerMon.hp - aiMon.atk) <= 0;
+
+  // Team context
+  const aiMonsLeft = b.rivalTeam.length - b.rivalMonIdx - 1; // how many in reserve after current
+  const playerMonsLeft = b.playerOneTeam.length - b.playerOneMonIdx - 1;
+  const isLastMon = aiMonsLeft === 0; // this is AI's last monkey — more desperate
+  const playerOnLastMon = playerMonsLeft === 0; // player is also on last monkey
 
   // Score each potion by situation
   let best = null;
@@ -2190,31 +2268,47 @@ function aiChoosePotion() {
     }
 
     if (pot.type === 'consume') {
+      // If this is last monkey, heal threshold becomes more urgent
+      const healUrgent = isLastMon ? 0.6 : 0.4;
+      const healGood = isLastMon ? 0.85 : 0.65;
+
       if (eff.type === 'bananaPeelConsume' && hpPct >= 1.0) score = -999;
-      else if (eff.type === 'bananaPeelConsume' && hpPct < 0.4) score = 90;
-      else if (eff.type === 'bananaPeelConsume' && hpPct < 0.65) score = 55;
+      else if (eff.type === 'bananaPeelConsume' && hpPct < healUrgent) score = 90;
+      else if (eff.type === 'bananaPeelConsume' && hpPct < healGood) score = 55;
       else if (eff.type === 'bananaPeelConsume') score = 10;
       else if (eff.type === 'spiderEyeConsume' && canKill) score = 90;
+      // On last mon, use ATK boost more aggressively
+      else if (eff.type === 'spiderEyeConsume' && isLastMon) score = 70;
       else if (eff.type === 'spiderEyeConsume' && hpPct > 0.6) score = 60;
       else if (eff.type === 'newtConsume') {
         const enemyCanHurt = playerMon.atk > aiMon.def;
-        if (hpPct < 0.4) score = 80;
+        if (hpPct < healUrgent) score = 80;
         else if (enemyCanHurt && hpPct < 0.7) score = 60;
         else if (enemyCanHurt) score = 40;
         else score = 15;
       }
-      else if (eff.type === 'bonesConsume' && hpPct < 0.4) score = 75;
+      // Damage reduction more valuable on last mon
+      else if (eff.type === 'bonesConsume' && (hpPct < 0.4 || isLastMon)) score = 75;
       else if (eff.type === 'spiritWaterConsume') {
         const hasOtherConsume = available.some(p => p.id !== pot.id && p.type === 'consume');
         score = hasOtherConsume ? 50 : -999;
       }
-      else if (eff.type === 'fireFigConsume' && canKill) score = 85; // fire punch to finish
-      else if (eff.type === 'fireFigConsume') score = 65; // dmg boost + burn chance always useful
+      else if (eff.type === 'fireFigConsume' && canKill) score = 85;
+      else if (eff.type === 'fireFigConsume') score = isLastMon ? 75 : 65;
       else if (eff.type === 'bambooConsume') score = 70;
-      else if (eff.type === 'sandDustConsume') score = hpPct < 0.5 ? 80 : 45; // absorb hits when low HP
+      else if (eff.type === 'sandDustConsume') score = (hpPct < 0.5 || isLastMon) ? 80 : 45;
       else if (eff.type === 'coconutJuiceConsume') score = aiMon.atk >= 5 ? 60 : 20;
+      // Whole Banana: use more aggressively on last mon or when low
+      else if (eff.type === 'wholeBananaConsume' && hpPct < 0.5) score = 85;
+      else if (eff.type === 'wholeBananaConsume') score = isLastMon ? 60 : 30;
+      // The Banana: halves ATK so only worthwhile if we can afford it
+      else if (eff.type === 'theBananaConsume' && hpPct < 0.3 && aiMon.atk > 3) score = 70;
+      else if (eff.type === 'theBananaConsume') score = -999;
       else score = 20;
     }
+
+    // On last mon with low HP, urgency bonus for all potions
+    if (isLastMon && hpPct < 0.3 && score > 0) score += 15;
 
     // Only add variance if score is meaningful
     if (score > 0) score += Math.random() * 15;
@@ -2222,8 +2316,9 @@ function aiChoosePotion() {
     if (score > bestScore) { bestScore = score; best = pot; }
   });
 
-  // Skip if best score is low (save potions for better moment)
-  if (bestScore < 30 && Math.random() < 0.5) {
+  // Skip threshold — lower when on last monkey (use potions more freely)
+  const skipThreshold = isLastMon ? 15 : 30;
+  if (bestScore < skipThreshold && Math.random() < 0.5) {
     addLog('system', `Rival Wizard holds their potion.`);
     skipPotion();
     return;
@@ -2390,7 +2485,7 @@ function renderFieldEffects() {
   if (b.fieldEffects.length === 0) { card.style.display = 'none'; return; }
   card.style.display = 'block';
   list.innerHTML = b.fieldEffects.map(fe =>
-    `<div class="field-effect splash-effect">${fe.icon} ${fe.name} (${fe.turnsLeft === Infinity ? 'permanent' : fe.turnsLeft + ' turn' + (fe.turnsLeft !== 1 ? 's' : '')})</div>`
+    `<div class="field-effect splash-effect">${iconInline(fe.icon,16)} ${fe.name} (${fe.turnsLeft === Infinity ? 'permanent' : fe.turnsLeft + ' turn' + (fe.turnsLeft !== 1 ? 's' : '')})</div>`
   ).join('');
 }
 
@@ -2426,7 +2521,7 @@ function renderPotionHand() {
     const typeText = pot.type === 'consume' ? 'Consumable' : 'Splash';
     hand.innerHTML += `
       <div class="potion-card ${typeClass}" onclick="playPotion('${pot.id}')">
-        <div class="potion-card-icon">${pot.icon}</div>
+        <div class="potion-card-icon">${iconInline(pot.icon,28)}</div>
         <div class="potion-card-name">${pot.name}</div>
         <div class="potion-card-type ${typeLabel}">${typeText} · Lv${pot.level}</div>
         <div class="potion-card-effect">${pot.effect.desc}</div>
@@ -2461,7 +2556,7 @@ function playPotion(potId) {
   const myMon = isPlayerOne ? b.playerOneMon : b.rivalMon;
   const enemyMon = isPlayerOne ? b.rivalMon : b.playerOneMon;
 
-  addLog('info', `${playerName} plays ${pot.icon} ${pot.name} (Lv${pot.level})!`);
+  addLog('info', `${playerName} plays ${iconInline(pot.icon,16)} ${pot.name} (Lv${pot.level})!`);
 
   const eff = pot.effect;
 
@@ -2992,22 +3087,52 @@ function showResult(winnerId, loserId) {
   const winner = G.players[winnerId];
   const loser = G.players[loserId];
 
+  // Restore all monkeys to full HP between levels
+  G.players.forEach(p => p.monkeys.forEach(mon => { mon.hp = mon.maxHp; }));
+
   document.getElementById('result-icon').textContent = winnerId === 0 ? '🎉' : '🏆';
   document.getElementById('result-title').textContent = `${winner.name} Wins!`;
   document.getElementById('result-sub').textContent = `+10🍌 earned · ${loser.name} gets +5🍌`;
   document.getElementById('result-details').innerHTML = `
     ${winner.name}: ${winner.bananas}🍌 total<br>
     ${loser.name}: ${loser.bananas}🍌 total<br>
-    Level ${G.world}-${G.level} complete!`;
+    World ${G.world} Level ${G.level} complete!`;
 
   const btn = document.getElementById('result-continue-btn');
+  btn.onclick = continueAfterBattle; // reset in case world-complete overrode it
   if (G.level >= 3) {
-    btn.textContent = 'World 1 Complete! →';
+    btn.textContent = `World ${G.world} Complete! 🌟 →`;
   } else {
-    btn.textContent = `Next Level (${G.world}-${G.level+1}) →`;
+    btn.textContent = `Next Level (${G.world}-${G.level + 1}) →`;
   }
 
   showScreen('screen-result');
+}
+
+function levelUpMonkeys() {
+  // Called at the end of each world (level 3 complete)
+  // Each monkey gains +2 stat points distributed randomly across ATK/DEF/SPD
+  const results = [];
+  G.players.forEach((p, pIdx) => {
+    p.monkeys.forEach(mon => {
+      mon.level = (mon.level || 1) + 1;
+      // Distribute 2 bonus stat points
+      let pool = 2;
+      const gains = { atk: 0, def: 0, spd: 0 };
+      while (pool > 0) {
+        const stat = ['atk', 'def', 'spd'][Math.floor(Math.random() * 3)];
+        gains[stat]++;
+        pool--;
+      }
+      mon.atk += gains.atk;
+      mon.def += gains.def;
+      mon.spd += gains.spd;
+      // Fully restore HP on level-up
+      mon.hp = mon.maxHp;
+      results.push({ pIdx, name: mon.name, icon: mon.icon, level: mon.level, gains });
+    });
+  });
+  return results;
 }
 
 function continueAfterBattle() {
@@ -3018,15 +3143,31 @@ function continueAfterBattle() {
         const idx = p.brewedPotions.findIndex(bp => bp.id === pot.id);
         if (idx >= 0) p.brewedPotions.splice(idx, 1);
       }
-      // Mark unused potions as available again
       if (!pot.used) pot.used = false;
     });
     p.battlePotions = [];
-    p.selectedMonkeyIdx = 0;
   });
 
   if (G.level >= 3) {
-    // World complete — advance to next world, monkey pickup happens at start of new world
+    // World complete — level up all monkeys first
+    const levelUps = levelUpMonkeys();
+
+    // Update result screen to show level-ups
+    const detailsEl = document.getElementById('result-details');
+    if (detailsEl) {
+      const lvlHtml = levelUps
+        .filter(lu => lu.pIdx === 0) // only show player's monkeys
+        .map(lu => {
+          const gainStr = [
+            lu.gains.atk > 0 ? `+${lu.gains.atk} ATK` : '',
+            lu.gains.def > 0 ? `+${lu.gains.def} DEF` : '',
+            lu.gains.spd > 0 ? `+${lu.gains.spd} SPD` : ''
+          ].filter(Boolean).join(', ');
+          return `${iconInline(lu.icon,16)} ${lu.name} → <strong>Lv${lu.level}</strong> (${gainStr})`;
+        }).join('<br>');
+      detailsEl.innerHTML += `<br><br>🌟 <strong>Monkeys levelled up!</strong><br>${lvlHtml}`;
+    }
+
     G.world = (G.world || 1) + 1;
     G.level = 1;
     G.activePlayer = 0;
@@ -3035,7 +3176,11 @@ function continueAfterBattle() {
       p.purchasedSlots = [];
       p.pickedMonkeyThisWorld = false;
     });
-    startWorldTransition();
+    // Delay world transition so player can read the level-up results
+    document.getElementById('result-continue-btn').onclick = () => {
+      showScreen('screen-shop');
+      startWorldTransition();
+    };
   } else {
     G.level++;
     G.activePlayer = 0;

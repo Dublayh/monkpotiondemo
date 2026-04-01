@@ -845,7 +845,7 @@
 
     <!-- Active player potion choice -->
     <div class="card" id="potion-choice-card">
-      <div class="card-title" id="potion-choice-title">Your turn — play a potion or skip</div>
+      <div class="card-title" id="potion-choice-title">Your turn — play a potion or attack</div>
       <div class="potion-hand" id="potion-hand"></div>
     </div>
 
@@ -2319,7 +2319,7 @@ function aiChoosePotion() {
   // Skip threshold — lower when on last monkey (use potions more freely)
   const skipThreshold = isLastMon ? 15 : 30;
   if (bestScore < skipThreshold && Math.random() < 0.5) {
-    addLog('system', `Rival Wizard holds their potion.`);
+    addLog('system', `Rival Wizard attacks!`);
     skipPotion();
     return;
   }
@@ -2512,7 +2512,7 @@ function renderPotionHand() {
   const player = G.players[0];
   const potions = b.playerOnePotions;
 
-  title.textContent = `Your turn — play a potion or skip`;
+  title.textContent = `Your turn — play a potion or attack`;
   hand.innerHTML = '';
 
   potions.filter(p => !p.used).forEach(pot => {
@@ -2531,7 +2531,7 @@ function renderPotionHand() {
   // Skip button
   hand.innerHTML += `
     <div class="skip-btn-wrap">
-      <button class="btn btn-secondary" onclick="skipPotion()">⏭ Skip</button>
+      <button class="btn btn-secondary" onclick="skipPotion()">⚔️ Attack</button>
     </div>`;
 }
 
@@ -2755,7 +2755,7 @@ function skipPotion() {
   const playerName = b.phase === 'playerOneTurn' ? G.players[0].name : G.players[1].name;
   const isAi = b.phase !== 'playerOneTurn';
   trackBattleEvent(playerName, b.turn, 'skipped', null, isAi);
-  addLog('system', `${b.phase === 'playerOneTurn' ? 'You hold' : 'Rival Wizard holds'} their potion this turn.`);
+  addLog('system', `${b.phase === 'playerOneTurn' ? 'You attack!' : 'Rival Wizard attacks!'}`);
   advanceBattlePhase();
 }
 

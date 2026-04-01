@@ -845,7 +845,7 @@
 
     <!-- Active player potion choice -->
     <div class="card" id="potion-choice-card">
-      <div class="card-title" id="potion-choice-title">P1's turn — play a potion or skip</div>
+      <div class="card-title" id="potion-choice-title">P1's turn — play a potion or attack</div>
       <div class="potion-hand" id="potion-hand"></div>
     </div>
 
@@ -2186,7 +2186,7 @@ function renderPotionHand() {
   const player = isP1Turn ? G.players[0] : G.players[1];
   const potions = isP1Turn ? b.playerOnePotions : b.playerTwoPotions;
 
-  title.textContent = `${player.name}'s turn — play a potion or skip`;
+  title.textContent = `${player.name}'s turn — play a potion or attack`;
   hand.innerHTML = '';
 
   potions.filter(p => !p.used).forEach(pot => {
@@ -2205,7 +2205,7 @@ function renderPotionHand() {
   // Skip button
   hand.innerHTML += `
     <div class="skip-btn-wrap">
-      <button class="btn btn-secondary" onclick="skipPotion()">⏭ Skip</button>
+      <button class="btn btn-secondary" onclick="skipPotion()">⚔️ Attack</button>
     </div>`;
 }
 
@@ -2425,7 +2425,7 @@ function skipPotion() {
   const b = G.battle;
   const name = b.phase === 'playerOneTurn' ? G.players[0].name : G.players[1].name;
   trackBattleEvent(name, b.turn, 'skipped', null);
-  addLog('system', `${name} holds their potion this turn.`);
+  addLog('system', `${name} attacks!`);
   advanceBattlePhase();
 }
 

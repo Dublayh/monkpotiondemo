@@ -928,7 +928,7 @@ const INGREDIENTS = {
     }
   },
   bones: {
-    id: 'bones', name: 'Bones', icon: '<img src="icons/ingredients/bones.gif" style="width:36px;height:36px;object-fit:contain;image-rendering:pixelated" alt="Bones">', cost: 4,
+    id: 'bones', name: 'Bones', icon: '🦴', cost: 4,
     desc: 'Spell: 33/50/66% nullify enemy potion boost · Splash: 60% deal 2/3/4 dmg (permanent) · Consume: 33/42/50% dmg reduction',
     effects: {
       spell: (lv) => ({ type: 'bonesSpell', chance: [33,50,66][lv-1], desc: `${[33,50,66][lv-1]}% nullify enemy battle potion boost` }),
@@ -2551,7 +2551,7 @@ function playPotion(potId) {
   const playerIdx = isPlayerOne ? 0 : 1;
   const original = G.players[playerIdx].brewedPotions.find(bp => bp.id === pot.id);
   if (original) original.used = true;
-  const playerName = isPlayerOne ? 'You' : 'Rival Wizard';
+  const playerName = G.players[isPlayerOne ? 0 : 1].name;
   trackBattleEvent(playerName, G.battle.turn, 'played', pot, !isPlayerOne);
   const myMon = isPlayerOne ? b.playerOneMon : b.rivalMon;
   const enemyMon = isPlayerOne ? b.rivalMon : b.playerOneMon;
@@ -2752,7 +2752,7 @@ function playPotion(potId) {
 
 function skipPotion() {
   const b = G.battle;
-  const playerName = b.phase === 'playerOneTurn' ? 'You' : 'Rival Wizard';
+  const playerName = b.phase === 'playerOneTurn' ? G.players[0].name : G.players[1].name;
   const isAi = b.phase !== 'playerOneTurn';
   trackBattleEvent(playerName, b.turn, 'skipped', null, isAi);
   addLog('system', `${b.phase === 'playerOneTurn' ? 'You hold' : 'Rival Wizard holds'} their potion this turn.`);

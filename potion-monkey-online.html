@@ -1,0 +1,3274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Potion Monkey: World 1</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Nunito:wght@400;600;700&display=swap');
+
+  :root {
+    --bg: #1a1a2e;
+    --bg2: #16213e;
+    --bg3: #0f3460;
+    --card: #1e2a4a;
+    --card2: #243156;
+    --border: #2e4080;
+    --accent: #e94560;
+    --accent2: #f5a623;
+    --accent3: #4ecdc4;
+    --accent4: #a8e063;
+    --text: #eef2ff;
+    --text2: #9baacf;
+    --text3: #6070a0;
+    --spell: #c084fc;
+    --spell-bg: #2d1b4e;
+    --spell-border: #7c3aed;
+    --consume: #fb923c;
+    --consume-bg: #2d1a0e;
+    --consume-border: #c2410c;
+    --splash: #38bdf8;
+    --splash-bg: #0c2233;
+    --splash-border: #0369a1;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  h1, h2, h3, .display { font-family: 'Fredoka', sans-serif; }
+
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* HEADER */
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .header-title { font-family: 'Fredoka', sans-serif; font-size: 22px; color: var(--accent2); }
+  .header-info { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .stat-pill {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stat-pill span { color: var(--text2); }
+  .stat-pill strong { color: var(--text); }
+
+  /* PHASE INDICATOR */
+  .phase-bar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 20px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .phase-step {
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    color: var(--text3);
+    background: var(--card);
+  }
+  .phase-step.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .phase-step.done { background: var(--bg3); border-color: var(--accent3); color: var(--accent3); }
+  .phase-arrow { color: var(--text3); font-size: 11px; }
+
+  /* MAIN LAYOUT */
+  .main { flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; max-width: 1200px; width: 100%; margin: 0 auto; }
+
+  /* CARDS */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .card-title {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 16px;
+    color: var(--accent2);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .badge {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    background: var(--bg3);
+    color: var(--text2);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  /* BUTTONS */
+  .btn {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+  .btn-success { background: var(--green); color: #0a1a0a; }
+  .btn-warning { background: var(--accent2); color: #1a0a00; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* SHOP */
+  .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .shop-item {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    position: relative;
+  }
+  .shop-item:hover { border-color: var(--accent2); transform: translateY(-1px); }
+  .shop-item.selected { border-color: var(--accent2); background: #2a2a1a; }
+  .shop-item-icon { font-size: 28px; margin-bottom: 6px; text-align: center; }
+  .shop-item-name { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+  .shop-item-cost { color: var(--accent2); font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+  .shop-item-desc { color: var(--text2); font-size: 11px; line-height: 1.4; }
+  .shop-item-desc div { padding: 2px 0; border-bottom: 1px solid var(--border); }
+  .shop-item-desc div:last-child { border-bottom: none; }
+  .shop-item-type {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: 700;
+  }
+  .type-ingredient { background: var(--bg3); color: var(--accent3); }
+  .type-flask { background: var(--spell-bg); color: var(--spell); }
+
+  /* INVENTORY GRID */
+  .inv-grid {
+    display: grid;
+    gap: 4px;
+  }
+  .inv-cell {
+    width: 52px;
+    height: 52px;
+    background: var(--bg2);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--text3);
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .inv-cell:hover { border-color: var(--accent2); }
+  .inv-cell.occupied { border-style: solid; cursor: default; }
+  .inv-cell.spell-cell { border-color: var(--spell-border); background: var(--spell-bg); }
+  .inv-cell.consume-cell { border-color: var(--consume-border); background: var(--consume-bg); }
+  .inv-cell.splash-cell { border-color: var(--splash-border); background: var(--splash-bg); }
+  .inv-cell-content { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .inv-cell-icon { font-size: 20px; }
+  .inv-cell-label { font-size: 9px; font-weight: 700; text-align: center; line-height: 1.2; }
+
+  /* MONKEY CARD */
+  .monkey-card {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    flex: 1;
+    min-width: 200px;
+  }
+  .monkey-card.active-monkey { border-color: var(--accent3); }
+  .monkey-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .monkey-avatar { font-size: 36px; }
+  .monkey-name { font-family: 'Fredoka', sans-serif; font-size: 18px; }
+  .monkey-level { font-size: 11px; color: var(--accent2); font-weight: 700; }
+  .stat-bars { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .stat-row { display: flex; align-items: center; gap:8px; }
+  .stat-label { font-size: 11px; color: var(--text2); width: 28px; font-weight: 700; }
+  .stat-bar-bg { flex: 1; height: 8px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+  .stat-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .stat-val { font-size: 11px; font-weight: 700; width: 28px; text-align: right; }
+  .hp-bar { background: var(--green); }
+  .atk-bar { background: var(--red); }
+  .def-bar { background: var(--accent3); }
+  .spd-bar { background: var(--yellow); }
+
+  .spell-slots { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .spell-slot {
+    background: var(--spell-bg);
+    border: 1px solid var(--spell-border);
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--spell);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .spell-slot.empty { border-style: dashed; color: var(--text3); background: var(--bg2); border-color: var(--border); }
+
+  /* STATUS EFFECTS */
+  .status-effects { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; min-height: 24px; }
+  .status-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 700;
+  }
+  .status-burn { background: #7f1d1d; color: #fca5a5; }
+  .status-weak { background: #1c1917; color: #d6d3d1; }
+
+  /* BATTLE SCREEN */
+  .battle-arena {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .battle-monkey {
+    flex: 1;
+    min-width: 140px;
+    text-align: center;
+  }
+  .battle-monkey-icon { font-size: 52px; margin-bottom: 8px; display: block; }
+  .battle-monkey-name { font-family: 'Fredoka', sans-serif; font-size: 20px; margin-bottom: 4px; }
+  .battle-monkey-stats { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .battle-stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .hp-stat { color: var(--green); }
+  .atk-stat { color: var(--red); }
+  .def-stat { color: var(--accent3); }
+  .spd-stat { color: var(--yellow); }
+
+  .vs-divider {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 32px;
+    color: var(--text3);
+    text-align: center;
+  }
+
+  @media (max-width: 400px) {
+    .battle-arena { flex-direction: column; align-items: center; }
+    .battle-monkey { min-width: unset; width: 100%; }
+    .vs-divider { order: 2; margin: 4px 0; }
+    .battle-monkey:first-child { order: 1; }
+    .battle-monkey:last-child { order: 3; }
+  }
+
+  /* BATTLE LOG */
+  .battle-log {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    max-height: 320px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .log-entry { font-size: 12px; line-height: 1.5; padding: 3px 0; border-bottom: 1px solid var(--bg3); }
+  .log-entry:last-child { border-bottom: none; }
+  .log-dmg { color: var(--red); }
+  .log-heal { color: var(--green); }
+  .log-status { color: var(--yellow); }
+  .log-info { color: var(--accent3); }
+  .log-system { color: var(--text2); font-style: italic; }
+
+  /* POTION HAND */
+  .potion-hand { display: flex; gap: 8px; flex-wrap: wrap; }
+  .potion-card {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    min-width: 120px;
+    flex: 1;
+    max-width: 160px;
+  }
+  .potion-card:hover { transform: translateY(-2px); }
+  .potion-card.consume-potion { border-color: var(--consume-border); }
+  .potion-card.consume-potion:hover { border-color: var(--consume); }
+  .potion-card.splash-potion { border-color: var(--splash-border); }
+  .potion-card.splash-potion:hover { border-color: var(--splash); }
+  .potion-card-icon { font-size: 24px; margin-bottom: 4px; }
+  .potion-card-name { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
+  .potion-card-type { font-size: 10px; margin-bottom: 4px; }
+  .consume-label { color: var(--consume); }
+  .splash-label { color: var(--splash); }
+  .potion-card-effect { font-size: 11px; color: var(--text2); line-height: 1.3; }
+
+  .skip-btn-wrap { display: flex; align-items: center; }
+
+  /* BREW SCREEN */
+  .brew-section { display: flex; gap: 16px; flex-wrap: wrap; }
+  .brew-left { flex: 1; min-width: 220px; }
+  .brew-right { flex: 2; min-width: 280px; }
+
+  .ingredient-list { display: flex; flex-direction: column; gap: 6px; }
+  .ingredient-row {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .ingredient-row:hover { border-color: var(--accent2); }
+  .ingredient-row.selected-ing { border-color: var(--accent2); background: #2a2a1a; }
+  .ing-icon { font-size: 20px; }
+  .ing-info { flex: 1; }
+  .ing-name { font-weight: 700; font-size: 13px; }
+  .ing-count { font-size: 11px; color: var(--text2); }
+
+  .brew-builder {
+    background: var(--bg2);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    min-height: 120px;
+    margin-bottom: 10px;
+  }
+  .brew-slots { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .brew-slot {
+    background: var(--card);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    width: 72px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 10px;
+    color: var(--text3);
+    cursor: pointer;
+  }
+  .brew-slot.filled { border-style: solid; border-color: var(--accent2); cursor: default; }
+  .brew-slot-icon { font-size: 24px; display:flex; align-items:center; justify-content:center; }
+  .brew-slot-icon img { width: 40px !important; height: 40px !important; object-fit: contain; }
+  .brew-slot-name { font-size: 9px; text-align: center; color: var(--text2); }
+
+  .brew-preview {
+    background: var(--card);
+    border: 1px solid var(--accent3);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .brew-preview-title { font-size: 12px; color: var(--accent3); font-weight: 700; margin-bottom: 4px; }
+  .brew-preview-effects { font-size: 11px; color: var(--text2); line-height: 1.6; }
+
+  .flask-selector { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .flask-btn {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    transition: border-color 0.15s;
+    font-family: 'Nunito', sans-serif;
+  }
+  .flask-btn:hover { border-color: var(--accent2); }
+  .flask-btn.selected-flask { border-color: var(--consume); color: var(--consume); }
+  .flask-btn.selected-flask-splash { border-color: var(--splash); color: var(--splash); }
+
+  /* RESULT SCREEN */
+  .result-box {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .result-icon { font-size: 64px; margin-bottom: 16px; }
+  .result-title { font-family: 'Fredoka', sans-serif; font-size: 36px; margin-bottom: 8px; }
+  .result-sub { color: var(--text2); font-size: 16px; margin-bottom: 24px; }
+
+  /* FIELD EFFECTS */
+  .field-effects { display: flex; gap: 8px; flex-wrap: wrap; }
+  .field-effect {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .field-effect.splash-effect { border-color: var(--splash-border); color: var(--splash); }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .tab {
+    padding: 6px 14px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--bg2);
+    color: var(--text2);
+    font-family: 'Nunito', sans-serif;
+  }
+  .tab.active { background: var(--card); color: var(--text); border-color: var(--border); }
+
+  /* TWO PLAYER LAYOUT */
+  .two-player { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .two-player { grid-template-columns: 1fr; } }
+
+  .player-section {
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    background: var(--card);
+  }
+  .player-section.p1 { border-color: var(--accent); }
+  .player-section.p2 { border-color: var(--accent3); }
+  .player-header {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 18px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .p1 .player-header { color: var(--accent); }
+  .p2 .player-header { color: var(--accent3); }
+
+  .monkeys-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* WORLD MAP */
+  .world-map { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 0; }
+  .level-node {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Fredoka', sans-serif;
+    font-size: 16px;
+    border: 2px solid var(--border);
+    background: var(--bg2);
+    color: var(--text3);
+  }
+  .level-node.current { border-color: var(--accent2); background: var(--bg3); color: var(--accent2); }
+  .level-node.completed { border-color: var(--green); background: #0a2a0a; color: var(--green); }
+  .level-node.boss { border-color: var(--accent); }
+  .level-connector { width: 20px; height: 2px; background: var(--border); }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+  .text-muted { color: var(--text2); }
+  .text-sm { font-size: 12px; }
+
+  .brew-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
+
+  .turn-indicator {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .hp-bar-large {
+    width: 100%;
+    height: 10px;
+    background: var(--bg2);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .hp-fill { height: 100%; background: var(--green); border-radius: 5px; transition: width 0.4s; }
+  .hp-fill.low { background: var(--yellow); }
+  .hp-fill.critical { background: var(--red); }
+
+  .animate-hit { animation: hitFlash 0.3s ease; }
+  @keyframes hitFlash { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .potion-used-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(233,69,96,0.15);
+    border-radius: 10px;
+    pointer-events: none;
+  }
+</style>
+
+<!-- WAITING OVERLAY -->
+<div id="waiting-overlay" style="display:none;position:fixed;inset:0;background:rgba(10,10,20,0.88);z-index:5000;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <div style="font-size:48px">⏳</div>
+  <div id="waiting-msg" style="font-family:Fredoka,sans-serif;font-size:22px;color:var(--accent2)">Waiting for opponent...</div>
+  <div id="waiting-sub" style="font-size:13px;color:var(--text3)"></div>
+  <div id="reconnect-countdown" style="display:none;color:var(--red);font-size:13px"></div>
+</div>
+
+<!-- SCREEN: LOBBY -->
+<div id="screen-lobby" class="screen active">
+  <div class="main" style="align-items:center;justify-content:center;flex:1;gap:20px">
+    <div style="font-family:Fredoka,sans-serif;font-size:36px;color:var(--accent2)">🍵 Potion Monkey</div>
+    <div style="font-size:14px;color:var(--text2);margin-top:-12px">Online</div>
+    <div class="card" style="max-width:380px;width:100%">
+
+      <div id="lobby-home">
+        <div class="card-title">🎮 Play Online</div>
+        <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Enter your name, then host a game or join a friend's room.</p>
+        <input id="player-name-input" type="text" maxlength="16" placeholder="Your name"
+          style="width:100%;padding:10px;font-size:15px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text1);box-sizing:border-box;margin-bottom:12px">
+        <button class="btn btn-primary" onclick="hostRoom()" style="width:100%;margin-bottom:10px">🏠 Host a Game</button>
+        <button class="btn btn-secondary" onclick="showJoinScreen()" style="width:100%">🔗 Join a Game</button>
+        <div id="lobby-error" style="color:var(--red);font-size:12px;margin-top:10px;display:none"></div>
+      </div>
+
+      <div id="lobby-join" style="display:none">
+        <div class="card-title">🔗 Join a Room</div>
+        <input id="join-code-input" type="text" maxlength="6" placeholder="ROOM CODE"
+          style="width:100%;padding:12px;font-size:28px;font-family:monospace;letter-spacing:6px;text-align:center;text-transform:uppercase;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--accent2);box-sizing:border-box;margin-bottom:12px"
+          oninput="this.value=this.value.toUpperCase()">
+        <button class="btn btn-primary" onclick="joinRoom()" style="width:100%;margin-bottom:8px">Join →</button>
+        <button class="btn btn-secondary" onclick="showLobbyHome()" style="width:100%">Back</button>
+        <div id="join-error" style="color:var(--red);font-size:12px;margin-top:10px;display:none"></div>
+      </div>
+
+      <div id="lobby-hosting" style="display:none">
+        <div class="card-title">🏠 Room Created!</div>
+        <div id="lobby-code-display" style="font-family:monospace;font-size:52px;font-weight:700;text-align:center;letter-spacing:10px;color:var(--accent2);padding:16px 0"></div>
+        <p style="color:var(--text2);font-size:13px;text-align:center;margin-bottom:12px">Share this code with your friend</p>
+        <div style="color:var(--text3);font-size:13px;text-align:center">⏳ Waiting for opponent...</div>
+        <button class="btn btn-secondary" onclick="cancelRoom()" style="width:100%;margin-top:16px">Cancel</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: SHOP -->
+<div id="screen-shop" class="screen">
+  <div class="topbar">
+    <div class="topbar-title" id="shop-title">🏪 Shop</div>
+    <div class="topbar-right">
+      <span id="shop-player-label" style="font-size:12px;color:var(--text2)"></span>
+      <span class="banana-count" id="shop-bananas">0🍌</span>
+    </div>
+  </div>
+  <div class="main">
+    <div id="shop-monkey-display" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px"></div>
+    <div class="card">
+      <div class="card-title">🧪 Flasks</div>
+      <div class="shop-grid" id="flask-shop"></div>
+    </div>
+    <div class="card" id="w1-ingredient-card">
+      <div class="card-title">🌿 World 1 Ingredients <span class="badge">3 slots</span></div>
+      <div class="shop-grid" id="ingredient-shop"></div>
+    </div>
+    <div class="card" id="w2-ingredient-card" style="display:none">
+      <div class="card-title">🔥 World 2 Ingredients <span class="badge">3 slots</span></div>
+      <div class="shop-grid" id="ingredient-shop-w2"></div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap" id="brewing-tool-cards">
+      <div class="card" id="spoon-card" style="display:none;flex:1;min-width:180px">
+        <div class="card-title">🧰 Tool <span class="badge">world 2+</span></div>
+        <div class="shop-grid" id="spoon-shop"></div>
+      </div>
+      <div class="card" id="cauldron-card" style="display:none;flex:1;min-width:180px">
+        <div class="card-title">🫕 Cauldron <span class="badge">world 2+</span></div>
+        <div class="shop-grid" id="cauldron-shop"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div id="cart-display"></div>
+      <button class="btn btn-primary" onclick="buyCart()" style="margin-right:8px">Buy Selected</button>
+      <button class="btn btn-secondary" onclick="clearCart()">Clear Cart</button>
+    </div>
+    <div style="text-align:right;margin-top:8px">
+      <button class="btn btn-success" id="shop-ready-btn" onclick="playerReadyShop()">Done Shopping ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: BREW -->
+<div id="screen-brew" class="screen">
+  <div class="topbar">
+    <div class="topbar-title">⚗️ Brew Potions</div>
+    <div class="topbar-right"><span class="banana-count" id="brew-bananas">0🍌</span></div>
+  </div>
+  <div class="main" style="flex-direction:row;flex-wrap:wrap;gap:12px;align-items:flex-start">
+    <div style="flex:1;min-width:220px">
+      <div class="card">
+        <div class="card-title">🎒 Inventory</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:6px">INGREDIENTS</div>
+        <div id="ingredient-list"></div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin:10px 0 6px">FLASKS</div>
+        <div id="flask-list"></div>
+      </div>
+    </div>
+    <div style="flex:2;min-width:300px">
+      <div class="card">
+        <div class="card-title">🫕 Cauldron <span class="badge">drop ingredients (1–3). select flask type. brew.</span></div>
+        <div class="brew-slots" id="brew-slots"></div>
+        <div class="brew-type-buttons">
+          <button class="btn btn-secondary brew-type-btn" id="brew-consume-btn" onclick="selectBrewType('consume')">🧪 Consume Flask</button>
+          <button class="btn btn-secondary brew-type-btn" id="brew-splash-btn" onclick="selectBrewType('splash')">💦 Splash Flask</button>
+          <button class="btn brew-type-btn" id="brew-spell-btn" onclick="selectBrewType('spell')" style="background:var(--spell-bg);border:1px solid var(--spell-border);color:var(--spell)">✨ Spell (no flask)</button>
+        </div>
+        <div class="brew-preview" id="brew-preview" style="display:none">
+          <div class="brew-preview-title" id="brew-preview-title"></div>
+          <div class="brew-preview-desc" id="brew-preview-desc"></div>
+        </div>
+        <button class="btn btn-success" onclick="brewPotion()" style="margin-right:8px">Brew Potion</button>
+        <button class="btn btn-secondary" onclick="clearBrewSlots()">Clear</button>
+      </div>
+      <div class="card">
+        <div class="card-title">📦 Brewed Potions <span class="badge" id="brewed-count">0</span></div>
+        <div id="brewed-list"></div>
+      </div>
+    </div>
+  </div>
+  <div style="text-align:right;padding:0 16px 16px">
+    <button class="btn btn-success" onclick="playerReadyBrew()">Done Brewing ✓</button>
+  </div>
+</div>
+
+<!-- SCREEN: SPELLBOOK -->
+<div id="screen-spellbook" class="screen">
+  <div class="topbar"><div class="topbar-title">📖 Spellbook</div></div>
+  <div class="main">
+    <div class="card">
+      <p style="color:var(--text2);font-size:13px;margin-bottom:10px">Passive buffs assigned to monkeys. Always active. No flask needed. Up to 3 per monkey. Order matters — Spirit Water boosts the <em>next</em> spell in the list.</p>
+      <div id="spellbook-monkeys"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">✨ Available Spells</div>
+      <div id="spellbook-spells"></div>
+    </div>
+    <div style="text-align:right;padding:0 0 8px">
+      <button class="btn btn-success" onclick="playerReadySpellbook()">Done ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: LOADOUT -->
+<div id="screen-loadout" class="screen">
+  <div class="topbar">
+    <div class="topbar-title">⚔️ Battle Loadout</div>
+    <div class="topbar-right"><span id="loadout-player-name" style="font-size:13px;color:var(--text2)"></span></div>
+  </div>
+  <div class="main">
+    <div class="card">
+      <div class="card-title">⚔️ Battle Order <span class="badge">drag to reorder</span></div>
+      <div id="loadout-monkeys" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🧳 Battle Inventory <span class="badge">3×3 grid · drag to fill</span></div>
+      <div id="battle-inv-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px"></div>
+      <div class="card-title" style="margin-top:8px">Available Potions</div>
+      <div id="loadout-potions"></div>
+    </div>
+    <div style="text-align:right;padding:0 0 8px">
+      <button class="btn btn-success" onclick="playerReadyLoadout()">Ready for Battle ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: BATTLE -->
+<div id="screen-battle" class="screen">
+  <div class="topbar">
+    <div class="topbar-title">⚔️ Battle</div>
+    <div class="topbar-right">
+      <span id="battle-level-display" style="font-size:12px;color:var(--text2)"></span>
+      <span id="turn-counter" style="font-size:12px;color:var(--text3)">Turn 1</span>
+    </div>
+  </div>
+  <div class="main">
+    <div id="battle-team-roster" style="display:flex;justify-content:space-between;margin-bottom:8px"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="card" style="flex:1;min-width:200px">
+        <div class="card-title" id="battle-you-label">You</div>
+        <div class="battle-monkey" id="battle-you-display"></div>
+      </div>
+      <div class="card" style="flex:1;min-width:200px">
+        <div class="card-title" id="battle-opp-label">Opponent</div>
+        <div class="battle-monkey" id="battle-opp-display"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="potion-choice-title">Your turn</div>
+      <div id="potion-hand" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="field-effects-title" style="display:none">🌀 Field Effects</div>
+      <div id="field-effects-display"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📜 Battle Log</div>
+      <div class="battle-log" id="battle-log"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: RESULT -->
+<div id="screen-result" class="screen">
+  <div class="main" style="align-items:center;justify-content:center;flex:1">
+    <div class="card result-box" style="max-width:400px;width:100%">
+      <div class="result-icon" id="result-icon">🏆</div>
+      <div class="result-title" id="result-title">Result</div>
+      <div class="result-sub" id="result-sub"></div>
+      <div id="result-details" style="color:var(--text2);font-size:13px;margin-bottom:20px;line-height:1.7"></div>
+      <button class="btn btn-primary" id="result-continue-btn" onclick="playerReadyResult()">Continue →</button>
+      <div id="result-waiting" style="color:var(--text3);font-size:12px;margin-top:10px;display:none">⏳ Waiting for opponent...</div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: MONKEY PICKUP -->
+<div id="screen-monkey-pickup" class="screen">
+  <div class="topbar"><div class="topbar-title">🐵 New Monkey!</div></div>
+  <div class="main" style="align-items:center;justify-content:center;flex:1">
+    <div class="card" style="max-width:400px;width:100%;text-align:center">
+      <div id="pickup-icon" style="font-size:48px;margin-bottom:4px">🐵</div>
+      <div id="pickup-name" style="font-family:Fredoka,sans-serif;font-size:22px;margin-bottom:4px"></div>
+      <div id="pickup-stats" style="font-size:13px;color:var(--text2);margin-bottom:16px"></div>
+      <div id="pickup-actions" style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// GAME DATA
+// ============================================================
+
+function iconInline(icon, size = 16) {
+  if (!icon || !icon.includes('<img')) return icon;
+  return icon.replace(/width:\d+px;height:\d+px/, `width:${size}px;height:${size}px`)
+             .replace(/style="([^"]*)"/, `style="$1;vertical-align:middle;margin-right:2px"`);
+}
+
+const INGREDIENTS = {
+  banana_peel: {
+    id: 'banana_peel', name: 'Banana Peel', icon: '<img src="icons/ingredients/BananaPeel.gif" style="width:36px;height:36px;object-fit:contain;image-rendering:pixelated" alt="Banana Peel">', cost: 2,
+    desc: 'Spell: +1/2/3 max HP · Splash: Heal 1/2/3hp/turn for 2 turns · Consume: Heal 3/4/5hp',
+    effects: {
+      spell: (lv) => ({ type: 'bananaPeelSpell', value: lv, desc: `+${lv} max HP` }),
+      splash: (lv) => ({ type: 'bananaPeelSplash', value: lv, turns: 2, desc: `Heal ${lv}hp/turn for 2 turns` }),
+      consume: (lv) => ({ type: 'bananaPeelConsume', value: [3,4,5][lv-1], desc: `Heal ${[3,4,5][lv-1]}hp up to max` })
+    }
+  },
+  spider_eye: {
+    id: 'spider_eye', name: 'Spider Eye', icon: '🕷️', cost: 3,
+    desc: 'Spell: +1/2/3 ATK · Splash: 50% negate enemy ATK for 1/2/3 turns · Consume: +4/5/6 next ATK',
+    effects: {
+      spell: (lv) => ({ type: 'spiderEyeSpell', value: lv, desc: `+${lv} ATK` }),
+      splash: (lv) => ({ type: 'spiderEyeSplash', chance: 50, turns: lv, desc: `50% negate enemy ATK for ${lv} turn${lv > 1 ? 's' : ''}` }),
+      consume: (lv) => ({ type: 'spiderEyeConsume', value: [4,5,6][lv-1], desc: `+${[4,5,6][lv-1]} to next attack` })
+    }
+  },
+  newt: {
+    id: 'newt', name: 'Newt', icon: '🦎', cost: 5,
+    desc: 'Spell: +1/2/3 DEF · Splash: -2 enemy DEF for 1/2/3 turns · Consume: +4/5/6 to next DEF',
+    effects: {
+      spell: (lv) => ({ type: 'newtSpell', value: lv, desc: `+${lv} DEF` }),
+      splash: (lv) => ({ type: 'newtSplash', value: 2, turns: lv, desc: `-2 enemy DEF for ${lv} turn${lv > 1 ? 's' : ''}` }),
+      consume: (lv) => ({ type: 'newtConsume', value: [4,5,6][lv-1], desc: `+${[4,5,6][lv-1]} to next DEF` })
+    }
+  },
+  bones: {
+    id: 'bones', name: 'Bones', icon: '🦴', cost: 4,
+    desc: 'Spell: 33/50/66% nullify enemy potion boost · Splash: 60% deal 2/3/4 dmg (permanent) · Consume: 33/42/50% dmg reduction',
+    effects: {
+      spell: (lv) => ({ type: 'bonesSpell', chance: [33,50,66][lv-1], desc: `${[33,50,66][lv-1]}% nullify enemy battle potion boost` }),
+      splash: (lv) => ({ type: 'bonesSplash', chance: 60, value: [2,3,4][lv-1], desc: `60% deal ${[2,3,4][lv-1]} dmg to attacker (permanent)` }),
+      consume: (lv) => ({ type: 'bonesConsume', value: [33,42,50][lv-1], desc: `${[33,42,50][lv-1]}% damage reduction on next hit` })
+    }
+  },
+  spirit_water: {
+    id: 'spirit_water', name: 'Spirit Water', icon: '💧', cost: 5,
+    desc: 'Spell: Boost next spell +10/20/30% · Splash: Boost next splash +25/40/50% · Consume: Boost next consumable +25/40/50%',
+    effects: {
+      spell: (lv) => ({ type: 'spiritWaterSpell', value: [10,20,30][lv-1], desc: `Boost next spell in rotation by ${[10,20,30][lv-1]}%` }),
+      splash: (lv) => ({ type: 'spiritWaterSplash', value: [25,40,50][lv-1], desc: `Boost next splash by ${[25,40,50][lv-1]}%` }),
+      consume: (lv) => ({ type: 'spiritWaterConsume', value: [25,40,50][lv-1], desc: `Boost next consumable by ${[25,40,50][lv-1]}%` })
+    }
+  }
+};
+
+const FLASKS = {
+  consume_flask: { id: 'consume_flask', name: 'Consume Flask', icon: '🧪', cost: 2, desc: 'Required for consumable potions. Returned after use.' },
+  splash_flask: { id: 'splash_flask', name: 'Splash Flask', icon: '💦', cost: 2, desc: 'Required for splash potions. Consumed on throw.' }
+};
+
+const WORLD_2_INGREDIENTS = {
+  the_banana: {
+    id: 'the_banana', name: 'The Banana', icon: '🍌🍌', cost: 5, world: 2,
+    desc: 'Spell: +5/8/12 max HP · Splash: 50% chance heal 5/7/10hp · Consume: Halve ATK, recover 100/200/300% of lost ATK as HP',
+    effects: {
+      spell: (lv) => {
+        const ranges = [[5,15],[10,20],[15,25]];
+        const [min, max] = ranges[lv-1];
+        const value = min + Math.floor(Math.random() * (max - min + 1));
+        return { type: 'theBananaSpell', value, desc: `+${value} max HP (rolled ${min}-${max})` };
+      },
+      splash: (lv) => ({ type: 'theBananaSplash', chance: 50, value: [5,7,10][lv-1], desc: `50% chance to heal ${[5,7,10][lv-1]}hp` }),
+      consume: (lv) => ({ type: 'theBananaConsume', mult: [1,2,3][lv-1], desc: `Halve ATK, recover ${[100,200,300][lv-1]}% of lost ATK as HP` })
+    }
+  },
+  fire_fig: {
+    id: 'fire_fig', name: 'Fire Fig', icon: '🔥', cost: 5, world: 2,
+    desc: 'Spell: 10/20/30% burn chance per attack · Splash: 33% chance to burn 1/2/3 turns · Consume: +1/2/3 dmg, 85% burn chance',
+    effects: {
+      spell: (lv) => ({ type: 'fireFigSpell', chance: [10,20,30][lv-1], desc: `${[10,20,30][lv-1]}% chance to burn on each attack` }),
+      splash: (lv) => ({ type: 'fireFigSplash', chance: 33, turns: lv, desc: `33% chance to burn enemy for ${lv} turn${lv > 1 ? 's' : ''}` }),
+      consume: (lv) => ({ type: 'fireFigConsume', value: lv, burnChance: 85, desc: `+${lv} dmg, 85% chance to burn` })
+    }
+  },
+  pumice_stone: {
+    id: 'pumice_stone', name: 'Pumice Stone', icon: '🪨', cost: 5, world: 2,
+    desc: 'Spell: Survive 1/2/3 death blows (ATK halved on trigger) · Splash: Clear 1/2/all field effects · Consume: Clear 1/2/all status effects',
+    effects: {
+      spell: (lv) => ({ type: 'pumiceStoneSpell', charges: lv, desc: `Survive ${lv} death blow${lv > 1 ? 's' : ''} (ATK halved on trigger)` }),
+      splash: (lv) => ({ type: 'pumiceStoneSplash', count: lv === 3 ? Infinity : lv, desc: lv === 3 ? 'Clear all field effects (your side)' : `Clear ${lv} field effect${lv > 1 ? 's' : ''} (your side)` }),
+      consume: (lv) => ({ type: 'pumiceStoneConsume', count: lv === 3 ? Infinity : lv, desc: lv === 3 ? 'Clear all status effects' : `Clear ${lv} status effect${lv > 1 ? 's' : ''}` })
+    }
+  },
+  coconut_juice: {
+    id: 'coconut_juice', name: 'Coconut Juice', icon: '🥥', cost: 9, world: 2,
+    desc: 'Spell: +1/2/3🍌 per spell ATK point at battle start · Splash: +1/2/3🍌 each time you attack (permanent) · Consume: Convert ATK to 🍌, ATK set to 1',
+    effects: {
+      spell: (lv) => ({ type: 'coconutJuiceSpell', mult: lv, desc: `+${lv}🍌 per spell ATK point at battle start` }),
+      splash: (lv) => ({ type: 'coconutJuiceSplash', value: lv, desc: `+${lv}🍌 each time you attack (permanent)` }),
+      consume: (lv) => ({
+        type: 'coconutJuiceConsume',
+        ratio: lv === 1 ? 0.5 : lv,
+        desc: lv === 1 ? '+1🍌 per 2 ATK converted, ATK set to 1' : `+${lv}🍌 per ATK point converted, ATK set to 1`
+      })
+    }
+  },
+  bamboo: {
+    id: 'bamboo', name: 'Bamboo', icon: '🎋', cost: 10, world: 2,
+    desc: 'Spell: Copy spell above at Lv1/2/3 · Splash: Negate 50/75/100% of enemy active SP · Consume: +1/2/3 permanent base ATK',
+    effects: {
+      spell: (lv) => ({ type: 'bambooSpell', copyLevel: lv, desc: `Copy spell above at Lv${lv}` }),
+      splash: (lv) => ({ type: 'bambooSplash', pct: [50,75,100][lv-1], desc: `Negate ${[50,75,100][lv-1]}% of enemy active SP` }),
+      consume: (lv) => ({ type: 'bambooConsume', value: lv, desc: `+${lv} permanent base ATK` })
+    }
+  }
+};
+
+const BREWING_TOOLS = {
+  plastic_spoon: { id: 'plastic_spoon', name: 'Plastic Spoon', icon: '🥄', cost: 8, desc: '25% discount on all shop ingredients' },
+  soup_ladle: { id: 'soup_ladle', name: 'Soup Ladle', icon: '🫙', cost: 10, desc: 'All CPs also heal 3hp on use' },
+  halloween_bucket: { id: 'halloween_bucket', name: 'Halloween Bucket', icon: '🎃', cost: 10, desc: '+1 HP or +1 ATK to applicable potions' },
+  stainless_pot: { id: 'stainless_pot', name: 'Stainless Pot', icon: '🫕', cost: 13, desc: '15% chance to yield Lv2 from 1 ingredient' }
+};
+
+const WORLD_1_MONKEYS = [
+  { id: 'jungle', name: 'Jungle Monkey', icon: '🐵', desc: 'A nimble monkey from the treetops.' },
+  { id: 'scout', name: 'Scout Monkey', icon: '🙊', desc: 'Quick and evasive, hard to pin down.' },
+  { id: 'brute', name: 'Brute Monkey', icon: '🦍', desc: 'Slow but hits like a falling coconut.' }
+];
+
+const WORLD_2_MONKEYS = [
+  { id: 'brute', name: 'Brute Monkey', icon: '🦍', desc: 'Forged in volcanic heat. Hits harder than ever.' }
+];
+
+function rollMonkeyStats(statPool = 14, hpMin = 8, hpMax = 10) {
+  const hp = hpMin + Math.floor(Math.random() * (hpMax - hpMin + 1));
+  return { hp }; // stub — makeMonkey below handles full stat generation
+}
+
+
+// ============================================================
+// SUPABASE
+// ============================================================
+const SUPABASE_URL = 'https://qfujketzhkirilxwmluk.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_PZSjKEpsZ4ptP1lspjlK7A_v-7M5_pD';
+
+async function sbFetch(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation',
+      ...opts.headers
+    },
+    ...opts
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Supabase error: ${err}`);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function sbUpsert(table, data) {
+  return sbFetch(`${table}?room_code=eq.${data.room_code}`, {
+    method: 'PATCH',
+    prefer: 'return=representation',
+    body: JSON.stringify(data)
+  });
+}
+
+async function sbGet(table, roomCode) {
+  const rows = await sbFetch(`${table}?room_code=eq.${roomCode}&select=*`);
+  return rows?.[0] || null;
+}
+
+async function sbInsertRoom(data) {
+  return sbFetch('online_rooms', {
+    method: 'POST',
+    prefer: 'return=representation',
+    body: JSON.stringify(data)
+  });
+}
+
+async function sbDeleteRoom(roomCode) {
+  return sbFetch(`online_rooms?room_code=eq.${roomCode}`, {
+    method: 'DELETE',
+    prefer: ''
+  });
+}
+
+// ============================================================
+// REALTIME — poll-based (Supabase Realtime via REST polling)
+// ============================================================
+let pollInterval = null;
+let lastSeenUpdatedAt = null;
+let reconnectTimer = null;
+let reconnectCountdown = null;
+
+function startPolling(roomCode, onUpdate) {
+  stopPolling();
+  pollInterval = setInterval(async () => {
+    try {
+      const row = await sbGet('online_rooms', roomCode);
+      if (!row) {
+        handleOpponentDisconnect();
+        return;
+      }
+      if (row.updated_at !== lastSeenUpdatedAt) {
+        lastSeenUpdatedAt = row.updated_at;
+        onUpdate(row);
+      }
+      clearReconnectWarning();
+    } catch (e) {
+      console.warn('Poll error:', e);
+    }
+  }, 800);
+}
+
+function stopPolling() {
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+}
+
+function handleOpponentDisconnect() {
+  if (reconnectTimer) return;
+  let secs = 60;
+  document.getElementById('reconnect-countdown').style.display = 'block';
+  reconnectCountdown = setInterval(() => {
+    secs--;
+    document.getElementById('reconnect-countdown').textContent =
+      `⚠️ Opponent disconnected — waiting ${secs}s...`;
+    if (secs <= 0) {
+      clearInterval(reconnectCountdown);
+      stopPolling();
+      showLobbyError('Opponent disconnected. Game over.');
+      showLobbyHome();
+    }
+  }, 1000);
+  reconnectTimer = true;
+}
+
+function clearReconnectWarning() {
+  if (reconnectTimer) {
+    clearInterval(reconnectCountdown);
+    reconnectTimer = null;
+    document.getElementById('reconnect-countdown').style.display = 'none';
+    document.getElementById('reconnect-countdown').textContent = '';
+  }
+}
+
+// ============================================================
+// ONLINE STATE
+// ============================================================
+const O = {
+  roomCode: null,
+  isHost: false,
+  myName: '',
+  oppName: '',
+  phase: 'lobby',
+  myReady: false,
+  oppReady: false,
+  // My local potion choice this turn (sealed bid)
+  myPotionChoice: null, // potId or 'skip'
+  oppPotionChoice: null,
+};
+
+// G holds the full game state mirroring the local multiplayer structure
+// G.players[0] = me, G.players[1] = opponent
+const G = {
+  world: 1,
+  level: 1,
+  players: [],
+  battle: null,
+  trackingSessionId: null
+};
+
+// ============================================================
+// PLAYER FACTORY
+// ============================================================
+function makePlayer(name) {
+  return {
+    name,
+    bananas: 10,
+    monkeys: [],
+    brewedPotions: [],
+    battlePotions: [],
+    inventory: {
+      consume_flask: 0,
+      splash_flask: 0,
+      ingredients: {},
+      ingredients_w2: {},
+      brewingTools: {}
+    },
+    cart: [],
+    shopRoll: null,
+    purchasedSlots: [],
+    pickedMonkeyThisWorld: false,
+    selectedPotion: null, // sealed bid choice this turn
+  };
+}
+
+// ============================================================
+// LOBBY
+// ============================================================
+function showLobbyHome() {
+  stopPolling();
+  O.roomCode = null;
+  document.getElementById('lobby-home').style.display = 'block';
+  document.getElementById('lobby-join').style.display = 'none';
+  document.getElementById('lobby-hosting').style.display = 'none';
+  document.getElementById('lobby-error').style.display = 'none';
+  showScreen('screen-lobby');
+  hideWaiting();
+}
+
+function showJoinScreen() {
+  const name = document.getElementById('player-name-input').value.trim();
+  if (!name) { showLobbyError('Please enter your name first.'); return; }
+  document.getElementById('lobby-home').style.display = 'none';
+  document.getElementById('lobby-join').style.display = 'block';
+  document.getElementById('join-error').style.display = 'none';
+}
+
+function showLobbyError(msg) {
+  const el = document.getElementById('lobby-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function hostRoom() {
+  const name = document.getElementById('player-name-input').value.trim() || 'Wizard';
+  O.myName = name;
+  O.isHost = true;
+  O.roomCode = generateRoomCode();
+
+  const myPlayer = makePlayer(name);
+  myPlayer.shopRoll = rollShop();
+  const startMonkey = WORLD_1_MONKEYS[Math.floor(Math.random() * WORLD_1_MONKEYS.length)];
+  myPlayer.monkeys = [makeMonkey(startMonkey, 0)];
+
+  try {
+    await sbInsertRoom({
+      room_code: O.roomCode,
+      phase: 'lobby',
+      host_player: myPlayer,
+      guest_player: null,
+      host_ready: false,
+      guest_ready: false,
+      battle_state: null,
+      game_meta: { world: 1, level: 1 },
+      host_potion: null,
+      guest_potion: null,
+    });
+  } catch(e) {
+    showLobbyError('Failed to create room. Try again.');
+    console.error(e);
+    return;
+  }
+
+  document.getElementById('lobby-home').style.display = 'none';
+  document.getElementById('lobby-hosting').style.display = 'block';
+  document.getElementById('lobby-code-display').textContent = O.roomCode;
+
+  // Poll waiting for guest
+  startPolling(O.roomCode, (row) => {
+    if (row.guest_player && !O.oppName) {
+      // Guest joined — start the game
+      onGuestJoined(row, myPlayer);
+    }
+  });
+}
+
+async function joinRoom() {
+  const name = document.getElementById('player-name-input').value.trim() || 'Wizard';
+  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if (code.length !== 6) { showJoinError('Enter a 6-character room code.'); return; }
+
+  let row;
+  try {
+    row = await sbGet('online_rooms', code);
+  } catch(e) {
+    showJoinError('Could not connect. Try again.');
+    return;
+  }
+  if (!row) { showJoinError('Room not found. Check the code.'); return; }
+  if (row.guest_player) { showJoinError('Room is full.'); return; }
+  if (row.phase !== 'lobby') { showJoinError('Game already in progress.'); return; }
+
+  O.myName = name;
+  O.isHost = false;
+  O.roomCode = code;
+  O.oppName = row.host_player.name;
+
+  const myPlayer = makePlayer(name);
+  myPlayer.shopRoll = rollShop();
+  const startMonkey = WORLD_1_MONKEYS[Math.floor(Math.random() * WORLD_1_MONKEYS.length)];
+  myPlayer.monkeys = [makeMonkey(startMonkey, 1)];
+
+  // Write guest into room — keep phase as 'lobby' so host's poll detects the join
+  await sbUpsert('online_rooms', {
+    room_code: code,
+    guest_player: myPlayer,
+    host_ready: false,
+    guest_ready: false,
+  });
+
+  // Set up local G
+  G.players[0] = myPlayer;
+  G.players[1] = JSON.parse(JSON.stringify(row.host_player));
+  G.world = 1; G.level = 1;
+  G.trackingSessionId = `online_${code}_${Date.now()}`;
+
+  // Guest waits for host to flip phase to shop
+  showWaiting('Waiting for host to start the game...');
+  stopPolling();
+  startPolling(code, (row) => {
+    if (row.phase === 'shop') {
+      // Host has acknowledged — set up and enter shop
+      G.players[1] = JSON.parse(JSON.stringify(O.isHost ? row.guest_player : row.host_player));
+      stopPolling();
+      startPolling(code, onRoomUpdate);
+      enterShopPhase();
+    }
+  });
+}
+
+function showJoinError(msg) {
+  const el = document.getElementById('join-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+async function onGuestJoined(row, myPlayer) {
+  stopPolling();
+  O.oppName = row.guest_player.name;
+
+  G.players[0] = myPlayer;
+  G.players[1] = JSON.parse(JSON.stringify(row.guest_player));
+  G.world = 1; G.level = 1;
+  G.trackingSessionId = `online_${O.roomCode}_${Date.now()}`;
+
+  // Advance phase to shop
+  await sbUpsert('online_rooms', {
+    room_code: O.roomCode,
+    phase: 'shop',
+    host_ready: false,
+    guest_ready: false,
+  });
+
+  startPolling(O.roomCode, onRoomUpdate);
+  enterShopPhase();
+}
+
+async function cancelRoom() {
+  stopPolling();
+  if (O.roomCode) await sbDeleteRoom(O.roomCode);
+  showLobbyHome();
+}
+
+// ============================================================
+// ROOM UPDATE HANDLER (guest and host both receive this)
+// ============================================================
+async function onRoomUpdate(row) {
+  const phase = row.phase;
+  const myKey = O.isHost ? 'host' : 'guest';
+  const oppKey = O.isHost ? 'guest' : 'host';
+
+  // Sync opponent's player state
+  if (row[`${oppKey}_player`]) {
+    G.players[1] = JSON.parse(JSON.stringify(row[`${oppKey}_player`]));
+    G.players[1].name = O.oppName || G.players[1].name;
+  }
+
+  // Sync game meta
+  if (row.game_meta) {
+    G.world = row.game_meta.world;
+    G.level = row.game_meta.level;
+  }
+
+  const myReady = row[`${myKey}_ready`];
+  const oppReady = row[`${oppKey}_ready`];
+
+  if (phase === 'shop' && O.phase === 'shop') {
+    if (myReady && oppReady) { hideWaiting(); enterBrewPhase(); }
+  }
+
+  // Phase catch-ups — host advanced, guest follows if they already clicked ready
+  // OR if the DB is more than one phase ahead (they somehow missed the transition)
+  if (phase === 'brew' && O.phase === 'shop' && O.myReady) {
+    hideWaiting(); enterBrewPhase(); return;
+  }
+
+  if (phase === 'brew' && O.phase === 'brew') {
+    if (myReady && oppReady) { hideWaiting(); enterSpellbookPhase(); }
+  }
+
+  if (phase === 'spellbook' && O.phase === 'brew' && O.myReady) {
+    hideWaiting(); enterSpellbookPhase(); return;
+  }
+
+  if (phase === 'spellbook' && O.phase === 'spellbook') {
+    if (myReady && oppReady) { hideWaiting(); enterLoadoutPhase(); }
+  }
+
+  if (phase === 'loadout' && O.phase === 'spellbook' && O.myReady) {
+    hideWaiting(); enterLoadoutPhase(); return;
+  }
+
+  if (phase === 'loadout' && O.phase === 'loadout') {
+    if (myReady && oppReady) { hideWaiting(); enterBattlePhase(row); }
+  }
+
+  if (phase === 'battle' && O.phase === 'loadout' && O.myReady) {
+    hideWaiting(); enterBattlePhase(row); return;
+  }
+
+  if (phase === 'battle' && O.phase === 'battle') {
+    if (!O.isHost) {
+      // Guest watches host's battle state updates
+      if (row.battle_state) applyBattleStateUpdate(row.battle_state);
+    } else {
+      // Host: check if guest submitted their potion choice via guest_potion column
+      const guestChoice = row.guest_potion;
+      if (guestChoice && guestChoice !== O._lastSeenGuestPotion) {
+        // Format is "turn:potId" — only process if it's for the current turn
+        const [choiceTurn, ...potParts] = guestChoice.split(':');
+        const potId = potParts.join(':');
+        if (parseInt(choiceTurn) === G.battle?.turn) {
+          O._lastSeenGuestPotion = guestChoice;
+          O.oppPotionChoice = potId;
+          if (O.myPotionChoice !== null) {
+            resolveBothChoices();
+          }
+        }
+      }
+    }
+  }
+
+  if (phase === 'result' && O.phase === 'battle') {
+    // Guest: host finished battle — host_potion field signals who won
+    const hostWon = row.host_potion === 'win';
+    // From guest perspective: if host won, guest lost (winnerId=0 means host/player[0] won)
+    // Guest sees themselves as player[0], so if host won that's a loss for guest
+    const myWinnerId = O.isHost ? (hostWon ? 0 : 1) : (hostWon ? 1 : 0);
+    const myLoserId = 1 - myWinnerId;
+    // Sync player states and bananas
+    if (row.host_player) G.players[O.isHost ? 0 : 1] = row.host_player;
+    if (row.guest_player) G.players[O.isHost ? 1 : 0] = row.guest_player;
+    O.phase = 'result';
+    showResult(myWinnerId, myLoserId);
+    return;
+  }
+
+  if (phase === 'result' && O.phase === 'result') {
+    if (myReady && !oppReady) {
+      document.getElementById('result-waiting').style.display = 'block';
+    }
+    if (myReady && oppReady) {
+      hideWaiting();
+      continueAfterBattle(row);
+    }
+  }
+
+  // Catch-up: if DB already advanced to shop while we were on result
+  if (phase === 'shop' && O.phase === 'result') {
+    O.phase = 'result'; // let continueAfterBattle set it properly
+    continueAfterBattle(row);
+    return;
+  }
+
+  if (phase === 'worldtransition' && O.phase !== 'worldtransition') {
+    O.phase = 'worldtransition';
+    enterMonkeyPickup(row);
+  }
+
+  // Both players picked their monkey — host advances to shop
+  if (phase === 'worldtransition' && O.phase === 'worldtransition') {
+    const myReady = row[`${myKey}_ready`];
+    const oppReady = row[`${oppKey}_ready`];
+    if (myReady && oppReady && O.isHost) {
+      // Host writes phase: shop to advance both players
+      await sbUpsert('online_rooms', {
+        room_code: O.roomCode,
+        phase: 'shop',
+        host_ready: false,
+        guest_ready: false,
+      });
+      enterShopPhase();
+    } else if (myReady && oppReady && !O.isHost) {
+      // Guest will catch the phase change via the shop catch-up below
+    }
+  }
+
+  if (phase === 'shop' && O.phase === 'worldtransition') {
+    O.phase = 'shop';
+    enterShopPhase();
+  }
+}
+
+// ============================================================
+// WAITING OVERLAY
+// ============================================================
+function showWaiting(msg, sub = '') {
+  const el = document.getElementById('waiting-overlay');
+  el.style.display = 'flex';
+  document.getElementById('waiting-msg').textContent = msg;
+  document.getElementById('waiting-sub').textContent = sub;
+}
+
+function hideWaiting() {
+  document.getElementById('waiting-overlay').style.display = 'none';
+}
+
+// ============================================================
+// SHOP PHASE
+// ============================================================
+function enterShopPhase() {
+  O.phase = 'shop';
+  O.myReady = false;
+  const me = G.players[0];
+  if (!me.shopRoll) me.shopRoll = rollShop();
+  renderShop();
+  showScreen('screen-shop');
+  hideWaiting();
+}
+
+async function playerReadyShop() {
+  buyCart();
+  const me = G.players[0];
+  const myKey = O.isHost ? 'host' : 'guest';
+  O.myReady = true;
+
+  await sbUpsert('online_rooms', {
+    room_code: O.roomCode,
+    [`${myKey}_player`]: me,
+    [`${myKey}_ready`]: true,
+    phase: 'shop',
+  });
+
+  // Check if opponent already ready — if so advance immediately
+  const row = await sbGet('online_rooms', O.roomCode);
+  if (row && row[`${oppKey(myKey)}_ready`]) {
+    hideWaiting(); enterBrewPhase();
+  } else {
+    showWaiting('Waiting for opponent to finish shopping...');
+  }
+}
+
+function oppKey(myKey) { return myKey === 'host' ? 'guest' : 'host'; }
+
+// ============================================================
+// BREW PHASE
+// ============================================================
+function enterBrewPhase() {
+  if (O.phase === 'brew') return; // guard against double-entry
+  O.phase = 'brew';
+  O.myReady = false;
+  if (O.isHost) {
+    sbUpsert('online_rooms', { room_code: O.roomCode, host_ready: false, guest_ready: false, phase: 'brew' });
+  }
+  renderBrew();
+  showScreen('screen-brew');
+  hideWaiting();
+}
+
+async function playerReadyBrew() {
+  const me = G.players[0];
+  const myKey = O.isHost ? 'host' : 'guest';
+  O.myReady = true;
+
+  await sbUpsert('online_rooms', {
+    room_code: O.roomCode,
+    [`${myKey}_player`]: me,
+    [`${myKey}_ready`]: true,
+    phase: 'brew',
+  });
+
+  const row = await sbGet('online_rooms', O.roomCode);
+  if (row && row[`${oppKey(myKey)}_ready`]) {
+    hideWaiting(); enterSpellbookPhase();
+  } else {
+    showWaiting('Waiting for opponent to finish brewing...');
+  }
+}
+
+// ============================================================
+// SPELLBOOK PHASE
+// ============================================================
+function enterSpellbookPhase() {
+  if (O.phase === 'spellbook') return;
+  O.phase = 'spellbook';
+  O.myReady = false;
+  if (O.isHost) {
+    sbUpsert('online_rooms', { room_code: O.roomCode, host_ready: false, guest_ready: false, phase: 'spellbook' });
+  }
+  renderSpellbook();
+  showScreen('screen-spellbook');
+  hideWaiting();
+}
+
+async function playerReadySpellbook() {
+  const me = G.players[0];
+  const myKey = O.isHost ? 'host' : 'guest';
+  O.myReady = true;
+
+  await sbUpsert('online_rooms', {
+    room_code: O.roomCode,
+    [`${myKey}_player`]: me,
+    [`${myKey}_ready`]: true,
+    phase: 'spellbook',
+  });
+
+  const row = await sbGet('online_rooms', O.roomCode);
+  if (row && row[`${oppKey(myKey)}_ready`]) {
+    hideWaiting(); enterLoadoutPhase();
+  } else {
+    showWaiting('Waiting for opponent...');
+  }
+}
+
+// ============================================================
+// LOADOUT PHASE
+// ============================================================
+function enterLoadoutPhase() {
+  if (O.phase === 'loadout') return;
+  O.phase = 'loadout';
+  O.myReady = false;
+  if (O.isHost) {
+    sbUpsert('online_rooms', { room_code: O.roomCode, host_ready: false, guest_ready: false, phase: 'loadout' });
+  }
+  renderLoadout();
+  showScreen('screen-loadout');
+  hideWaiting();
+}
+
+async function playerReadyLoadout() {
+  const me = G.players[0];
+  const myKey = O.isHost ? 'host' : 'guest';
+  O.myReady = true;
+
+  await sbUpsert('online_rooms', {
+    room_code: O.roomCode,
+    [`${myKey}_player`]: me,
+    [`${myKey}_ready`]: true,
+    phase: 'loadout',
+  });
+
+  const row = await sbGet('online_rooms', O.roomCode);
+  if (row && row[`${oppKey(myKey)}_ready`]) {
+    hideWaiting(); enterBattlePhase(row);
+  } else {
+    showWaiting('Waiting for opponent to set loadout...');
+  }
+}
+
+// ============================================================
+// BATTLE PHASE
+// ============================================================
+function enterBattlePhase(row) {
+  O.phase = 'battle';
+  O.myPotionChoice = null;
+  O.oppPotionChoice = null;
+  O._lastSeenGuestPotion = null;
+  O.battleLevel = G.level; // snapshot level so world-complete check is reliable
+
+  // Host initialises battle state
+  if (O.isHost) {
+    const hostPlayer = G.players[0];
+    const guestPlayer = G.players[1];
+    initBattle(hostPlayer, guestPlayer);
+  }
+  // Guest just renders the battle screen and waits for first state
+  showScreen('screen-battle');
+  hideWaiting();
+
+  if (O.isHost) {
+    renderBattleScreen();
+    renderPotionHand();
+    if (G.battle) broadcastBattleState();
+  } else {
+    // Guest waits for host to push battle state
+    document.getElementById('potion-choice-title').textContent = 'Loading battle...';
+    document.getElementById('potion-hand').innerHTML = '';
+  }
+}
+
+function initBattle(hostPlayer, guestPlayer) {
+  // Host (P0) vs Guest (P1)
+  const p0Team = hostPlayer.monkeys.map(m => JSON.parse(JSON.stringify(m)));
+  const p1Team = guestPlayer.monkeys.map(m => JSON.parse(JSON.stringify(m)));
+  const p0Pots = JSON.parse(JSON.stringify(hostPlayer.battlePotions));
+  const p1Pots = JSON.parse(JSON.stringify(guestPlayer.battlePotions));
+
+  applyBattleStartSpells(hostPlayer, p0Team[0], 0);
+  applyBattleStartSpells(guestPlayer, p1Team[0], 1);
+
+  G.battle = {
+    myTeam: p0Team,
+    oppTeam: p1Team,
+    myMon: p0Team[0],
+    oppMon: p1Team[0],
+    myMonIdx: 0,
+    oppMonIdx: 0,
+    myPotions: p0Pots,
+    oppPotions: p1Pots,
+    fieldEffects: [],
+    log: [],
+    turn: 1,
+    phase: 'choosing', // choosing | resolving | done
+    myNegateAtk: false, oppNegateAtk: false,
+    myDmgReduction: 0, oppDmgReduction: 0,
+    myDeathBuffer: false, oppDeathBuffer: false,
+    myBoostNextAtk: 0, oppBoostNextAtk: 0,
+    myBoostNextDef: 0, oppBoostNextDef: 0,
+    myBurnChance: 0, oppBurnChance: 0,
+    myCoconutPayout: 0, oppCoconutPayout: 0,
+    mySplashBoost: 0, oppSplashBoost: 0,
+    myConsumeBoost: 0, oppConsumeBoost: 0,
+    healField: { active: false, value: 0, turnsLeft: 0, target: '' },
+    pendingLogs: [],
+    guestPotionPending: null,
+    guestPotionProcessed: null,
+  };
+
+  addLog('system', `⚔️ Battle begins! ${p0Team[0].name} vs ${p1Team[0].name}`);
+}
+
+async function broadcastBattleState(clearGuestPotion = false) {
+  if (!O.isHost || !G.battle) return;
+  const state = JSON.parse(JSON.stringify(G.battle));
+  await sbUpsert('online_rooms', {
+    room_code: O.roomCode,
+    battle_state: state,
+    phase: 'battle',
+    ...(clearGuestPotion ? { guest_potion: null } : {})
+  });
+}
+
+function applyBattleStateUpdate(bs) {
+  // Guest receives host's battle state and re-renders
+  if (!bs) return;
+  const prevTurn = G.battle?.turn;
+  G.battle = bs;
+  // If the turn number advanced, the previous choice was resolved — reset so guest can choose again
+  if (bs.turn > prevTurn || bs.phase === 'done') {
+    O.myPotionChoice = null;
+  }
+  renderBattleScreen();
+  renderBattleLog();
+  renderPotionHand();
+  renderFieldEffects();
+}
+
+// ============================================================
+// POTION CHOICE (SEALED BID)
+// ============================================================
+async function playPotion(potId) {
+  if (O.myPotionChoice !== null) return; // already chosen
+  O.myPotionChoice = potId;
+
+  // Mark potion as tentatively used in UI
+  renderPotionHand();
+  document.getElementById('potion-choice-title').textContent = '✓ Choice locked in — waiting for opponent...';
+
+  if (O.isHost) {
+    // Host waits for guest choice to arrive via polling
+    if (O.oppPotionChoice !== null) resolveBothChoices();
+  } else {
+    // Guest writes choice to dedicated column with turn number to prevent stale reads
+    await sbUpsert('online_rooms', {
+      room_code: O.roomCode,
+      guest_potion: `${G.battle.turn}:${potId}`,
+    });
+  }
+}
+
+async function skipPotion() {
+  await playPotion('skip');
+}
+
+function resolveBothChoices() {
+  if (!O.isHost) return;
+  const myChoice = O.myPotionChoice;
+  const oppChoice = O.oppPotionChoice;
+  O.myPotionChoice = null;
+  O.oppPotionChoice = null;
+  O._lastSeenGuestPotion = null;
+
+  addLog('system', `━━━ Turn ${G.battle.turn} ━━━`);
+
+  // Apply both choices
+  applyPotionChoice('my', myChoice);
+  applyPotionChoice('opp', oppChoice);
+
+  // Resolve attacks
+  resolveAttacks();
+
+  G.battle.turn++;
+
+  if (G.battle.phase !== 'done') {
+    // Broadcast new state AND clear guest_potion in one atomic write
+    broadcastBattleState(true).then(() => {
+      renderBattleScreen();
+      renderBattleLog();
+      renderPotionHand();
+      renderFieldEffects();
+    });
+  }
+}
+
+function applyPotionChoice(who, potId) {
+  const b = G.battle;
+  const isMe = who === 'my';
+  const potions = isMe ? b.myPotions : b.oppPotions;
+  const myMon = isMe ? b.myMon : b.oppMon;
+  const enemyMon = isMe ? b.oppMon : b.myMon;
+
+  if (potId === 'skip' || !potId) {
+    const label = isMe ? O.myName : O.oppName;
+    addLog('system', `${label} attacks!`);
+    return;
+  }
+
+  const pot = potions.find(p => p.id === potId);
+  if (!pot) return;
+  pot.used = true;
+
+  const label = isMe ? O.myName : O.oppName;
+  addLog('info', `${label} plays ${iconInline(pot.icon, 16)} ${pot.name} (Lv${pot.level})!`);
+
+  const eff = pot.effect;
+
+  if (pot.type === 'consume') {
+    if (pot.type === 'consume') {
+      const playerIdx = isMe ? 0 : 1;
+      G.players[playerIdx].inventory.consume_flask++;
+    }
+    // Return flask
+    const consumeBoostKey = isMe ? 'myConsumeBoost' : 'oppConsumeBoost';
+    const consumeBoost = b[consumeBoostKey];
+    if (consumeBoost > 0 && eff.value !== undefined && eff.type !== 'spiritWaterConsume') {
+      const bonus = Math.ceil(eff.value * consumeBoost / 100);
+      eff.value += bonus;
+      addLog('info', `💧 Spirit Water CP — ${myMon.name}'s ${pot.name} boosted by +${bonus}!`);
+    }
+    if (consumeBoost > 0) b[consumeBoostKey] = 0;
+
+    if (eff.type === 'spiritWaterConsume') {
+      b[consumeBoostKey] = eff.value;
+      addLog('info', `💧 Spirit Water CP — ${myMon.name} primes next consumable for +${eff.value}% boost!`);
+    } else if (eff.type === 'bananaPeelConsume') {
+      const healed = Math.min(eff.value, myMon.maxHp - myMon.hp);
+      myMon.hp += healed;
+      addLog('heal', `🍌 Banana Peel CP — ${myMon.name} recovers ${healed}hp → ${myMon.hp}/${myMon.maxHp}hp`);
+    } else if (eff.type === 'spiderEyeConsume') {
+      if (isMe) b.myBoostNextAtk += eff.value; else b.oppBoostNextAtk += eff.value;
+      addLog('info', `🕷️ Spider Eye CP — ${myMon.name}'s next attack +${eff.value} dmg`);
+    } else if (eff.type === 'newtConsume') {
+      if (isMe) b.myBoostNextDef += eff.value; else b.oppBoostNextDef += eff.value;
+      addLog('info', `🦎 Newt CP — ${myMon.name} braces! +${eff.value} DEF on next hit`);
+    } else if (eff.type === 'bonesConsume') {
+      if (isMe) b.myDmgReduction = eff.value; else b.oppDmgReduction = eff.value;
+      addLog('info', `🦴 Bones CP — ${myMon.name} braces for ${eff.value}% damage reduction`);
+    } else if (eff.type === 'fireFigConsume') {
+      if (isMe) { b.myBoostNextAtk += eff.value; b.myBurnChance = eff.burnChance; }
+      else { b.oppBoostNextAtk += eff.value; b.oppBurnChance = eff.burnChance; }
+      addLog('info', `🔥 Fire Fig CP — +${eff.value} dmg, ${eff.burnChance}% burn chance`);
+    } else if (eff.type === 'bambooConsume') {
+      const playerIdx = isMe ? 0 : 1;
+      const activeIdx = isMe ? b.myMonIdx : b.oppMonIdx;
+      G.players[playerIdx].monkeys[activeIdx].atk += eff.value;
+      myMon.atk += eff.value;
+      addLog('status', `🎋 Bamboo CP — ${myMon.name} gains +${eff.value} permanent ATK!`);
+    } else if (eff.type === 'pumiceStoneConsume') {
+      const count = eff.count === Infinity ? myMon.statusEffects?.length || 0 : Math.min(eff.count, myMon.statusEffects?.length || 0);
+      if (count > 0) { myMon.statusEffects.splice(0, count); addLog('status', `🪨 Pumice Stone CP — cleared ${count} status effects from ${myMon.name}!`); }
+      else addLog('info', `🪨 Pumice Stone CP — no status effects to clear`);
+    } else if (eff.type === 'sandDustConsume') {
+      myMon.absorbCharges = (myMon.absorbCharges || 0) + eff.charges;
+      addLog('status', `🦴🪨 Sand and Dust CP — ${myMon.name} can absorb ${eff.charges} hits!`);
+    } else if (eff.type === 'wholeBananaConsume') {
+      const healed = Math.min(Math.floor(myMon.atk * eff.mult), myMon.maxHp - myMon.hp);
+      myMon.hp = Math.min(myMon.maxHp, myMon.hp + healed);
+      addLog('heal', `🍌✨ Whole Banana CP — ${myMon.name} converts ATK into +${healed}hp!`);
+    } else if (eff.type === 'theBananaConsume') {
+      const halfAtk = Math.floor(myMon.atk / 2);
+      const lostAtk = myMon.atk - halfAtk;
+      const healed = Math.min(Math.floor(lostAtk * eff.mult), myMon.maxHp - myMon.hp);
+      myMon.atk = halfAtk;
+      myMon.hp = Math.min(myMon.maxHp, myMon.hp + healed);
+      addLog('info', `🍌🍌 The Banana CP — ${myMon.name} trades ATK for +${healed}hp`);
+    } else if (eff.type === 'coconutJuiceConsume') {
+      const playerIdx = isMe ? 0 : 1;
+      const converted = myMon.atk - 1;
+      const payout = eff.ratio < 1 ? Math.floor(converted / 2) : Math.floor(converted * eff.ratio);
+      myMon.atk = 1;
+      G.players[playerIdx].bananas += payout;
+      addLog('info', `🥥 Coconut Juice CP — ${myMon.name} converts ATK → +${payout}🍌`);
+    }
+
+    // Soup ladle
+    const playerIdx = isMe ? 0 : 1;
+    if (G.players[playerIdx].inventory.brewingTools?.soup_ladle) {
+      const ladleHeal = Math.min(3, myMon.maxHp - myMon.hp);
+      if (ladleHeal > 0) { myMon.hp += ladleHeal; addLog('heal', `🫙 Soup Ladle — ${myMon.name} heals +${ladleHeal}hp`); }
+    }
+  }
+
+  if (pot.type === 'splash') {
+    // Sand and Dust spell nullify
+    const splashTarget = isMe ? b.oppMon : b.myMon;
+    if (splashTarget.splashNullifyTurns > 0) {
+      splashTarget.splashNullifyTurns--;
+      addLog('status', `🦴🪨 Sand and Dust Spell — ${splashTarget.name} nullifies the splash!`);
+      return;
+    }
+
+    const splashBoostKey = isMe ? 'mySplashBoost' : 'oppSplashBoost';
+    const splashBoost = b[splashBoostKey];
+    if (eff.type === 'spiritWaterSplash') {
+      b[splashBoostKey] = eff.value;
+      addLog('info', `💧 Spirit Water SP — next splash boosted by +${eff.value}%!`);
+      return;
+    }
+    if (splashBoost > 0 && eff.value !== undefined) {
+      const bonus = Math.ceil(eff.value * splashBoost / 100);
+      eff.value += bonus;
+      addLog('info', `💧 Spirit Water SP — ${pot.name} boosted by +${bonus}!`);
+    }
+    if (splashBoost > 0) b[splashBoostKey] = 0;
+
+    if (eff.type === 'fireFigSplash') {
+      const hit = Math.random() * 100 < eff.chance;
+      if (hit) { applyBurn(enemyMon, eff.turns); addLog('status', `🔥 Fire Fig SP — ${eff.chance}% succeeded! ${enemyMon.name} burns!`); }
+      else addLog('info', `🔥 Fire Fig SP — ${eff.chance}% failed`);
+    } else if (eff.type === 'spiderEyeSplash') {
+      const hit = Math.random() * 100 < eff.chance;
+      if (hit) {
+        if (isMe) b.oppNegateAtk = true; else b.myNegateAtk = true;
+        b.fieldEffects.push({ icon: pot.icon, name: pot.name, turnsLeft: eff.turns, effect: eff, target: isMe ? 'opp' : 'my' });
+        addLog('status', `🕷️ Spider Eye SP — ${enemyMon.name}'s attack negated!`);
+      } else addLog('info', `🕷️ Spider Eye SP — roll failed`);
+    } else if (eff.type === 'bananaPeelSplash') {
+      b.healField = { active: true, value: eff.value, turnsLeft: eff.turns, target: isMe ? 'my' : 'opp' };
+      b.fieldEffects.push({ icon: pot.icon, name: pot.name, turnsLeft: eff.turns, effect: eff });
+      addLog('heal', `🍌 Banana Peel SP — ${myMon.name} heals ${eff.value}hp/turn for ${eff.turns} turns`);
+    } else if (eff.type === 'bonesSplash') {
+      b.fieldEffects.push({ icon: pot.icon, name: 'Bones Hazard', turnsLeft: Infinity, effect: eff, target: isMe ? 'opp' : 'my' });
+      addLog('status', `🦴 Bones SP — 60% chance to deal ${eff.value} dmg to ${enemyMon.name} when they attack`);
+    } else if (eff.type === 'newtSplash') {
+      b.fieldEffects.push({ icon: pot.icon, name: 'Newt DEF Debuff', turnsLeft: eff.turns, effect: eff, target: isMe ? 'opp' : 'my' });
+      addLog('status', `🦎 Newt SP — ${enemyMon.name}'s DEF reduced by ${eff.value} for ${eff.turns} turns`);
+    } else if (eff.type === 'sandDustSplash') {
+      b.fieldEffects.push({ icon: pot.icon, name: 'Sand and Dust Evasion', turnsLeft: Infinity, effect: eff, target: isMe ? 'my' : 'opp' });
+      addLog('status', `🦴🪨 Sand and Dust SP — ${myMon.name} gains ${eff.chance}% evasion!`);
+    } else if (eff.type === 'pumiceStoneSplash') {
+      const myTarget = isMe ? 'my' : 'opp';
+      const cleared = b.fieldEffects.filter(fe => fe.target === myTarget || !fe.target).length;
+      b.fieldEffects = b.fieldEffects.filter(fe => !(fe.target === myTarget || !fe.target));
+      addLog('status', `🪨 Pumice Stone SP — cleared ${cleared} field effects`);
+    } else if (eff.type === 'wholeBananaSplash') {
+      b.fieldEffects.push({ icon: pot.icon, name: 'Whole Banana Heal', turnsLeft: eff.turns, effect: eff, target: isMe ? 'my' : 'opp' });
+      addLog('heal', `🍌✨ Whole Banana SP — 40% chance to fully heal ${myMon.name} each turn`);
+    } else if (eff.type === 'theBananaSplash') {
+      if (Math.random() * 100 < eff.chance) {
+        const healed = Math.min(eff.value, myMon.maxHp - myMon.hp);
+        myMon.hp += healed;
+        addLog('heal', `🍌🍌 The Banana SP — ${eff.chance}% succeeded! ${myMon.name} heals ${healed}hp`);
+      } else addLog('info', `🍌🍌 The Banana SP — ${eff.chance}% failed`);
+    } else if (eff.type === 'coconutJuiceSplash') {
+      b.fieldEffects.push({ icon: pot.icon, name: 'Coconut Money Pile', turnsLeft: Infinity, effect: eff, target: isMe ? 'my' : 'opp' });
+      addLog('info', `🥥 Coconut Juice SP — ${myMon.name} earns +${eff.value}🍌 per attack!`);
+    } else if (eff.type === 'bambooSplash') {
+      const target = b.fieldEffects.find(fe => fe.target === (isMe ? 'opp' : 'my') && fe.effect.type !== 'bonesSplash');
+      if (target) {
+        const orig = target.effect.value;
+        if (eff.pct === 100) { target.effect.value = 0; addLog('status', `🎋 Bamboo SP — fully negates ${target.name}!`); }
+        else { target.effect.value = Math.max(0, Math.floor(orig * (1 - eff.pct / 100))); addLog('status', `🎋 Bamboo SP — ${eff.pct}% negation on ${target.name}`); }
+      } else addLog('info', `🎋 Bamboo SP — no active enemy splash to negate`);
+    } else if (eff.type === 'fireFigSpell') {
+      // shouldn't happen for splash but safety
+    }
+  }
+}
+
+// ============================================================
+// ATTACK RESOLUTION (host only)
+// ============================================================
+function resolveAttacks() {
+  const b = G.battle;
+  const attackers = [];
+
+  // Determine order by SPD
+  const mySPD = b.myMon.spd;
+  const oppSPD = b.oppMon.spd;
+  if (mySPD >= oppSPD) {
+    attackers.push({ aMon: b.myMon, dMon: b.oppMon, aKey: 'my', dKey: 'opp' });
+    attackers.push({ aMon: b.oppMon, dMon: b.myMon, aKey: 'opp', dKey: 'my' });
+    if (mySPD > oppSPD) addLog('system', `${b.myMon.name} attacks first (higher SPD)`);
+    else addLog('system', `${b.myMon.name} attacks first (SPD tie — host goes first)`);
+  } else {
+    attackers.push({ aMon: b.oppMon, dMon: b.myMon, aKey: 'opp', dKey: 'my' });
+    attackers.push({ aMon: b.myMon, dMon: b.oppMon, aKey: 'my', dKey: 'opp' });
+    addLog('system', `${b.oppMon.name} attacks first (higher SPD)`);
+  }
+
+  // Field effects tick
+  if (b.healField.active) {
+    const target = b.healField.target === 'my' ? b.myMon : b.oppMon;
+    const healed = Math.min(b.healField.value, target.maxHp - target.hp);
+    target.hp = Math.min(target.maxHp, target.hp + healed);
+    b.healField.turnsLeft--;
+    if (b.healField.turnsLeft <= 0) b.healField.active = false;
+    addLog('heal', `🍌 Banana Peel field heals ${target.name} for ${healed}hp → ${target.hp}/${target.maxHp}hp`);
+  }
+
+  b.fieldEffects.filter(fe => fe.effect.type === 'wholeBananaSplash').forEach(fe => {
+    const mon = fe.target === 'my' ? b.myMon : b.oppMon;
+    if (Math.random() * 100 < fe.effect.chance) {
+      const healed = mon.maxHp - mon.hp;
+      mon.hp = mon.maxHp;
+      addLog('heal', `🍌✨ Whole Banana field — ${mon.name} fully heals for ${healed}hp!`);
+    }
+  });
+
+  let myDead = false, oppDead = false;
+
+  for (const { aMon, dMon, aKey, dKey } of attackers) {
+    if (aMon.hp <= 0) continue;
+    if (dMon.hp <= 0) continue;
+
+    const isMyAttack = aKey === 'my';
+    const boost = isMyAttack ? b.myBoostNextAtk : b.oppBoostNextAtk;
+    const dNegate = isMyAttack ? b.oppNegateAtk : b.myNegateAtk;
+    const dDeathBuf = isMyAttack ? b.oppDeathBuffer : b.myDeathBuffer;
+    const dmgRedPct = isMyAttack ? b.oppDmgReduction : b.myDmgReduction;
+
+    // Bones Spell cumulative nullify
+    const bonesSpells = dMon.spells?.filter(s => s.effect.type === 'bonesSpell') || [];
+    if (bonesSpells.length > 0 && boost > 0) {
+      const combinedChance = (1 - bonesSpells.reduce((prod, s) => prod * (1 - s.effect.chance / 100), 1)) * 100;
+      if (Math.random() * 100 < combinedChance) {
+        if (isMyAttack) b.myBoostNextAtk = 0; else b.oppBoostNextAtk = 0;
+        addLog('status', `🦴 Bones Spell — ${dMon.name} nullifies boost! (${Math.round(combinedChance)}% combined)`);
+      }
+    }
+
+    if (dNegate) {
+      addLog('status', `🕷️ Spider Eye SP — ${aMon.name}'s attack negated!`);
+      if (isMyAttack) { b.oppNegateAtk = false; b.myBoostNextAtk = 0; }
+      else { b.myNegateAtk = false; b.oppBoostNextAtk = 0; }
+      continue;
+    }
+
+    // Sand and Dust evasion
+    const evasionField = b.fieldEffects.find(fe => fe.effect.type === 'sandDustSplash' && fe.target === dKey);
+    if (evasionField && Math.random() * 100 < evasionField.effect.chance) {
+      addLog('status', `🦴🪨 Sand and Dust — ${dMon.name} dodges! (${evasionField.effect.chance}% evasion)`);
+      continue;
+    }
+
+    const currentBoost = isMyAttack ? b.myBoostNextAtk : b.oppBoostNextAtk;
+    let rawDmg = aMon.atk + currentBoost;
+    if (currentBoost > 0) addLog('info', `${aMon.name} attack boosted: ${aMon.atk} + ${currentBoost} = ${rawDmg}`);
+    if (isMyAttack) b.myBoostNextAtk = 0; else b.oppBoostNextAtk = 0;
+
+    // Newt CP DEF boost to defender
+    const defBoost = isMyAttack ? b.oppBoostNextDef : b.myBoostNextDef;
+    const newtDebuff = b.fieldEffects.find(fe => fe.effect.type === 'newtSplash' && fe.target === aKey);
+    let effectiveDef = dMon.def + defBoost - (newtDebuff ? newtDebuff.effect.value : 0);
+    effectiveDef = Math.max(0, effectiveDef);
+    if (defBoost > 0) { if (isMyAttack) b.oppBoostNextDef = 0; else b.myBoostNextDef = 0; }
+
+    // Bones Hazard
+    const bonesHazard = b.fieldEffects.find(fe => fe.effect.type === 'bonesSplash' && fe.target === aKey);
+    if (bonesHazard && Math.random() * 100 < bonesHazard.effect.chance) {
+      aMon.hp = Math.max(0, aMon.hp - bonesHazard.effect.value);
+      addLog('dmg', `🦴 Bones SP — ${aMon.name} takes ${bonesHazard.effect.value} hazard dmg → ${aMon.hp}/${aMon.maxHp}hp`);
+      if (aMon.hp <= 0) { if (isMyAttack) myDead = true; else oppDead = true; continue; }
+    }
+
+    let actualDmg = Math.max(1, rawDmg - effectiveDef);
+
+    if (dmgRedPct > 0) {
+      actualDmg = Math.max(1, Math.floor(actualDmg * (1 - dmgRedPct / 100)));
+      if (isMyAttack) b.oppDmgReduction = 0; else b.myDmgReduction = 0;
+    }
+
+    const isCrit = Math.random() < 0.01;
+    if (isCrit) { actualDmg *= 2; addLog('status', `💥 Critical hit! Damage doubled to ${actualDmg}!`); }
+
+    // Death buffers
+    if (dMon.absorbCharges > 0) {
+      dMon.absorbCharges--;
+      addLog('status', `🦴🪨 Sand and Dust CP — ${dMon.name} absorbs the hit! (${dMon.absorbCharges} left)`);
+    } else if (dMon.pumiceCharges > 0 && dMon.hp - actualDmg <= 0) {
+      dMon.hp = Math.max(1, Math.floor(dMon.hp / 2));
+      dMon.atk = Math.max(1, Math.floor(dMon.atk / 2));
+      dMon.pumiceCharges--;
+      addLog('status', `🪨 Pumice Stone — ${dMon.name} survives! ATK halved. (${dMon.pumiceCharges} charges left)`);
+    } else if (dDeathBuf && dMon.hp - actualDmg <= 0) {
+      dMon.hp = 1;
+      if (isMyAttack) b.oppDeathBuffer = false; else b.myDeathBuffer = false;
+      addLog('info', `🦎 Newt SP — ${dMon.name} survives at 1hp!`);
+    } else {
+      dMon.hp = Math.max(0, dMon.hp - actualDmg);
+      addLog('dmg', `⚔️ ${aMon.name} hits ${dMon.name} for ${actualDmg} dmg → ${dMon.hp}/${dMon.maxHp}hp`);
+
+      // Burn procs
+      const fireFigSpells = aMon.spells?.filter(s => s.effect.type === 'fireFigSpell') || [];
+      if (fireFigSpells.length > 0) {
+        const combinedBurn = (1 - fireFigSpells.reduce((p, s) => p * (1 - s.effect.chance / 100), 1)) * 100;
+        if (Math.random() * 100 < combinedBurn) { applyBurn(dMon, 1); addLog('status', `🔥 Fire Fig Spell — ${dMon.name} burns!`); }
+      }
+      const burnChance = isMyAttack ? b.myBurnChance : b.oppBurnChance;
+      if (burnChance > 0 && Math.random() * 100 < burnChance) {
+        applyBurn(dMon, 1); addLog('status', `🔥 Fire Fig CP — fire punch burns ${dMon.name}!`);
+      }
+      if (isMyAttack) b.myBurnChance = 0; else b.oppBurnChance = 0;
+
+      // Coconut Juice splash payout
+      const coconutField = b.fieldEffects.find(fe => fe.effect.type === 'coconutJuiceSplash' && fe.target === aKey);
+      if (coconutField) {
+        const playerIdx = isMyAttack ? 0 : 1;
+        G.players[playerIdx].bananas += coconutField.effect.value;
+        addLog('info', `🥥 Coconut Juice SP — ${aMon.name} earns +${coconutField.effect.value}🍌!`);
+      }
+    }
+
+    // Status ticks
+    if (dMon.statusEffects) {
+      dMon.statusEffects = dMon.statusEffects.filter(se => {
+        if (se.type === 'burn') {
+          dMon.hp = Math.max(0, dMon.hp - 1);
+          addLog('status', `🔥 ${dMon.name} takes 1 burn dmg → ${dMon.hp}/${dMon.maxHp}hp`);
+          se.turns--;
+          return se.turns > 0;
+        }
+        return true;
+      });
+    }
+
+    // Death check
+    if (dMon.hp <= 0) { if (isMyAttack) oppDead = true; else myDead = true; }
+  }
+
+  // Decay field effects
+  b.fieldEffects = b.fieldEffects.map(fe => {
+    if (fe.turnsLeft !== Infinity) fe.turnsLeft--;
+    return fe;
+  }).filter(fe => fe.turnsLeft > 0 || fe.turnsLeft === Infinity);
+
+  if (myDead || oppDead) monkeyDied(myDead, oppDead);
+}
+
+function applyBurn(mon, turns) {
+  if (!mon.statusEffects) mon.statusEffects = [];
+  const existing = mon.statusEffects.find(se => se.type === 'burn');
+  if (existing) existing.turns = Math.max(existing.turns, turns);
+  else mon.statusEffects.push({ type: 'burn', turns });
+}
+
+function monkeyDied(myDead, oppDead) {
+  const b = G.battle;
+  if (myDead) {
+    addLog('dmg', `💀 ${b.myMon.name} has fallen!`);
+    b.myMonIdx++;
+    if (b.myMonIdx < b.myTeam.length) {
+      const next = b.myTeam[b.myMonIdx];
+      b.myMon = next;
+      addLog('system', `💨 ${next.name} steps up for ${O.myName}!`);
+      applyBattleStartSpells(G.players[0], next, 0);
+    }
+  }
+  if (oppDead) {
+    addLog('dmg', `💀 ${b.oppMon.name} has fallen!`);
+    b.oppMonIdx++;
+    if (b.oppMonIdx < b.oppTeam.length) {
+      const next = b.oppTeam[b.oppMonIdx];
+      b.oppMon = next;
+      addLog('system', `💨 ${next.name} steps up for ${O.oppName}!`);
+      applyBattleStartSpells(G.players[1], next, 1);
+    }
+  }
+
+  const myWiped = b.myMonIdx >= b.myTeam.length;
+  const oppWiped = b.oppMonIdx >= b.oppTeam.length;
+
+  if (myWiped || oppWiped) {
+    endBattle(myWiped, oppWiped);
+    return;
+  }
+
+  // Reset per-monkey state
+  b.myNegateAtk = false; b.oppNegateAtk = false;
+  b.myDmgReduction = 0; b.oppDmgReduction = 0;
+  b.myDeathBuffer = false; b.oppDeathBuffer = false;
+  b.myBoostNextAtk = 0; b.oppBoostNextAtk = 0;
+  b.myBoostNextDef = 0; b.oppBoostNextDef = 0;
+  b.myBurnChance = 0; b.oppBurnChance = 0;
+  b.healField = { active: false, value: 0, turnsLeft: 0, target: '' };
+
+  addLog('system', `⚔️ Next up: ${b.myMon.name} vs ${b.oppMon.name}`);
+}
+
+function endBattle(myWiped, oppWiped) {
+  const b = G.battle;
+  b.phase = 'done';
+
+  let winnerId, loserId;
+  if (myWiped && oppWiped) {
+    winnerId = b.myMon.spd >= b.oppMon.spd ? 0 : 1;
+    loserId = 1 - winnerId;
+    addLog('system', `Both teams wiped! ${G.players[winnerId].name} wins on SPD tiebreak!`);
+  } else if (oppWiped) {
+    winnerId = 0; loserId = 1;
+    addLog('system', `${O.oppName}'s team defeated! ${O.myName} wins!`);
+  } else {
+    winnerId = 1; loserId = 0;
+    addLog('system', `${O.myName}'s team defeated! ${O.oppName} wins!`);
+  }
+
+  // Payout — both follow normal rules online
+  G.players[winnerId].bananas += 10;
+  G.players[loserId].bananas += 5;
+
+  broadcastBattleState().then(async () => {
+    const myKey = O.isHost ? 'host' : 'guest';
+    const hostWon = winnerId === 0; // winnerId 0 = host always (host resolves battle)
+    await sbUpsert('online_rooms', {
+      room_code: O.roomCode,
+      phase: 'result',
+      host_ready: false,
+      guest_ready: false,
+      host_potion: hostWon ? 'win' : 'loss', // reuse field to signal winner
+      [`${myKey}_player`]: G.players[0],
+    });
+    showResult(winnerId, loserId);
+  });
+}
+
+// ============================================================
+// RESULT PHASE
+// ============================================================
+function showResult(winnerId, loserId) {
+  G.players.forEach(p => p.monkeys.forEach(mon => { mon.hp = mon.maxHp; }));
+
+  const iWon = winnerId === 0;
+  const earned = iWon ? 10 : 5;
+  document.getElementById('result-icon').textContent = iWon ? '🎉' : '😔';
+  document.getElementById('result-title').textContent = iWon ? 'You Win!' : 'You Lose!';
+  document.getElementById('result-sub').textContent = `+${earned}🍌 earned`;
+
+  let detailsHtml = `You now have ${G.players[0].bananas}🍌<br>World ${G.world} Level ${G.level} complete!`;
+  document.getElementById('result-details').innerHTML = detailsHtml;
+  document.getElementById('result-waiting').style.display = 'none';
+
+  const btn = document.getElementById('result-continue-btn');
+  btn.disabled = false;
+  btn.onclick = playerReadyResult;
+  btn.textContent = G.level >= 3 ? `World ${G.world} Complete! 🌟 →` : `Continue →`;
+
+  showScreen('screen-result');
+}
+
+async function playerReadyResult() {
+  const myKey = O.isHost ? 'host' : 'guest';
+  document.getElementById('result-waiting').style.display = 'block';
+  document.getElementById('result-continue-btn').disabled = true;
+
+  await sbUpsert('online_rooms', {
+    room_code: O.roomCode,
+    [`${myKey}_ready`]: true,
+    [`${myKey}_player`]: G.players[0],
+  });
+
+  // Check if opponent already ready
+  const row = await sbGet('online_rooms', O.roomCode);
+  if (row && row[`${oppKey(myKey)}_ready`]) {
+    continueAfterBattle(row);
+  }
+}
+
+async function continueAfterBattle(row) {
+  if (O.phase !== 'result') return; // guard against double-call
+  O.phase = 'continuing'; // prevent re-entry
+
+  // Use the level recorded at battle start — game_meta may have been updated by now
+  const battleLevel = O.battleLevel ?? G.level;
+
+  // Clean up used potions
+  G.players[0].battlePotions.forEach(pot => {
+    if (pot.used) {
+      const idx = G.players[0].brewedPotions.findIndex(bp => bp.id === pot.id);
+      if (idx >= 0) G.players[0].brewedPotions.splice(idx, 1);
+    }
+  });
+  G.players[0].battlePotions = [];
+
+  if (battleLevel >= 3) {
+    // World complete — level up
+    levelUpMonkeys();
+    G.world++;
+    G.level = 1;
+
+    if (O.isHost) {
+      G.players[0].shopRoll = rollShop();
+      G.players[0].purchasedSlots = [];
+      G.players[0].pickedMonkeyThisWorld = false;
+
+      await sbUpsert('online_rooms', {
+        room_code: O.roomCode,
+        phase: 'worldtransition',
+        game_meta: { world: G.world, level: G.level },
+        host_ready: false,
+        guest_ready: false,
+        [`${O.isHost ? 'host' : 'guest'}_player`]: G.players[0],
+      });
+    } else {
+      G.players[0].shopRoll = rollShop();
+      G.players[0].purchasedSlots = [];
+      G.players[0].pickedMonkeyThisWorld = false;
+      await sbUpsert('online_rooms', {
+        room_code: O.roomCode,
+        [`guest_player`]: G.players[0],
+      });
+    }
+    O.phase = 'worldtransition';
+    enterMonkeyPickup(row);
+  } else {
+    G.level++;
+    G.players[0].shopRoll = rollShop();
+    G.players[0].purchasedSlots = [];
+
+    const myKey = O.isHost ? 'host' : 'guest';
+    await sbUpsert('online_rooms', {
+      room_code: O.roomCode,
+      phase: 'shop',
+      game_meta: { world: G.world, level: G.level },
+      host_ready: false,
+      guest_ready: false,
+      [`${myKey}_player`]: G.players[0],
+    });
+    enterShopPhase();
+  }
+}
+
+function levelUpMonkeys() {
+  G.players[0].monkeys.forEach(mon => {
+    mon.level = (mon.level || 1) + 1;
+    let pool = 2;
+    while (pool > 0) {
+      const stat = ['atk', 'def', 'spd'][Math.floor(Math.random() * 3)];
+      mon[stat]++;
+      pool--;
+    }
+    mon.hp = mon.maxHp;
+  });
+}
+
+// ============================================================
+// MONKEY PICKUP
+// ============================================================
+function enterMonkeyPickup(row) {
+  const worldData = { 2: { template: WORLD_2_MONKEYS[0], statPool: 18, hpMin: 10, hpMax: 13 } };
+  const wd = worldData[G.world] || worldData[2];
+  const newMon = makeMonkey(wd.template, 0, wd.statPool, wd.hpMin, wd.hpMax);
+  const me = G.players[0];
+
+  document.getElementById('pickup-icon').textContent = newMon.icon;
+  document.getElementById('pickup-name').textContent = newMon.name;
+  document.getElementById('pickup-stats').textContent =
+    `❤️${newMon.hp}/${newMon.maxHp} ⚔️${newMon.atk} 🛡${newMon.def} 💨${newMon.spd}`;
+
+  const actions = document.getElementById('pickup-actions');
+  actions.innerHTML = '';
+
+  if (me.monkeys.length < 3) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-success';
+    btn.textContent = `Take ${newMon.name}`;
+    btn.onclick = async () => {
+      me.monkeys.push(newMon);
+      me.pickedMonkeyThisWorld = true;
+      await readyMonkeyPickup();
+    };
+    actions.appendChild(btn);
+  } else {
+    // Release option
+    me.monkeys.forEach((mon, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-secondary';
+      btn.style.width = '100%';
+      btn.textContent = `Release ${mon.name} → Take ${newMon.name}`;
+      btn.onclick = async () => {
+        me.monkeys.splice(i, 1, newMon);
+        me.pickedMonkeyThisWorld = true;
+        await readyMonkeyPickup();
+      };
+      actions.appendChild(btn);
+    });
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'btn btn-secondary';
+    skipBtn.style.cssText = 'width:100%;margin-top:8px';
+    skipBtn.textContent = 'Skip — keep my team';
+    skipBtn.onclick = async () => { me.pickedMonkeyThisWorld = true; await readyMonkeyPickup(); };
+    actions.appendChild(skipBtn);
+  }
+
+  showScreen('screen-monkey-pickup');
+}
+
+async function readyMonkeyPickup() {
+  const myKey = O.isHost ? 'host' : 'guest';
+  await sbUpsert('online_rooms', {
+    room_code: O.roomCode,
+    [`${myKey}_player`]: G.players[0],
+    [`${myKey}_ready`]: true,
+  });
+
+  // Check if opponent already ready
+  const row = await sbGet('online_rooms', O.roomCode);
+  const bothReady = row && row[`${oppKey(myKey)}_ready`];
+  if (bothReady) {
+    if (O.isHost) {
+      await sbUpsert('online_rooms', {
+        room_code: O.roomCode,
+        phase: 'shop',
+        host_ready: false,
+        guest_ready: false,
+      });
+      enterShopPhase();
+    }
+    // Guest waits for host to flip phase, caught by shop catch-up
+  } else {
+    showWaiting('Waiting for opponent to pick their monkey...');
+  }
+}
+
+// ============================================================
+// GAME HELPERS — makeMonkey, rollShop, etc.
+// ============================================================
+function makeMonkey(template, ownerIdx, statPool = 14, hpMin = 8, hpMax = 10) {
+  const hp = hpMin + Math.floor(Math.random() * (hpMax - hpMin + 1));
+  let atk = 1, spd = 1, def = 0;
+  let remaining = statPool - hp - atk - spd;
+  if (remaining < 0) remaining = 0;
+  const atkBonus = Math.floor(Math.random() * (remaining + 1));
+  const defBonus = Math.floor(Math.random() * (remaining - atkBonus + 1));
+  const spdBonus = remaining - atkBonus - defBonus;
+  return {
+    id: template.id,
+    name: template.name,
+    icon: template.icon,
+    desc: template.desc,
+    ownerId: ownerIdx,
+    level: 1,
+    maxHp: hp, hp,
+    atk: atk + atkBonus,
+    def: def + defBonus,
+    spd: spd + spdBonus,
+    spells: [],
+    statusEffects: []
+  };
+}
+
+function rollShop() {
+  const w1Keys = Object.keys(INGREDIENTS);
+  const w1Roll = [0,1,2].map(() => w1Keys[Math.floor(Math.random() * w1Keys.length)]);
+  let w2Roll = null, spoonRoll = null, cauldronRoll = null;
+  if ((G.world || 1) >= 2) {
+    const w2Keys = Object.keys(WORLD_2_INGREDIENTS);
+    w2Roll = [0,1,2].map(() => w2Keys[Math.floor(Math.random() * w2Keys.length)]);
+    const owned = G.players[0]?.inventory?.brewingTools || {};
+    const SPOONS = ['plastic_spoon', 'soup_ladle', 'halloween_bucket'];
+    const CAULDRONS = ['stainless_pot'];
+    const avSp = SPOONS.filter(t => !owned[t]);
+    const avCa = CAULDRONS.filter(t => !owned[t]);
+    spoonRoll = avSp.length > 0 ? avSp[Math.floor(Math.random() * avSp.length)] : null;
+    cauldronRoll = avCa.length > 0 ? avCa[Math.floor(Math.random() * avCa.length)] : null;
+  }
+  return { w1: w1Roll, w2: w2Roll, spoon: spoonRoll, cauldron: cauldronRoll };
+}
+
+function getIngredient(id) { return INGREDIENTS[id] || WORLD_2_INGREDIENTS[id]; }
+function getIngredientInventoryCount(p, id) {
+  return (p.inventory.ingredients[id] || 0) + (p.inventory.ingredients_w2?.[id] || 0);
+}
+
+// ============================================================
+// SCREEN MANAGEMENT
+// ============================================================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
+}
+
+function addLog(type, msg) {
+  if (!G.battle) return;
+  G.battle.log = G.battle.log || [];
+  G.battle.log.push({ type, msg });
+}
+
+function renderBattleLog() {
+  const el = document.getElementById('battle-log');
+  if (!el || !G.battle?.log) return;
+  el.innerHTML = G.battle.log.map(entry => {
+    const colors = { system: 'var(--text3)', dmg: 'var(--red)', heal: 'var(--green)', status: 'var(--accent2)', info: 'var(--text2)' };
+    return `<div style="font-size:12px;padding:2px 0;color:${colors[entry.type] || 'var(--text2)'}">${entry.msg}</div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderBattleScreen() {
+  if (!G.battle) return;
+  const b = G.battle;
+  document.getElementById('turn-counter').textContent = `Turn ${b.turn}`;
+  document.getElementById('battle-level-display').textContent = `${G.world}-${G.level}`;
+  document.getElementById('battle-you-label').textContent = O.myName;
+  document.getElementById('battle-opp-label').textContent = O.oppName;
+
+  // Host: myMon = their monkey. Guest: myMon is host's monkey, so swap for display
+  const myDisplayMon  = O.isHost ? b.myMon  : b.oppMon;
+  const oppDisplayMon = O.isHost ? b.oppMon : b.myMon;
+  const myDisplayTeam  = O.isHost ? b.myTeam  : b.oppTeam;
+  const oppDisplayTeam = O.isHost ? b.oppTeam : b.myTeam;
+  const myDisplayIdx  = O.isHost ? b.myMonIdx  : b.oppMonIdx;
+  const oppDisplayIdx = O.isHost ? b.oppMonIdx : b.myMonIdx;
+
+  renderBattleMonkey('battle-you-display', myDisplayMon);
+  renderBattleMonkey('battle-opp-display', oppDisplayMon);
+  renderBattleLog();
+  renderFieldEffects();
+
+  // Team rosters
+  const roster = document.getElementById('battle-team-roster');
+  if (myDisplayTeam?.length > 1 || oppDisplayTeam?.length > 1) {
+    const renderRoster = (team, monIdx, label) =>
+      `<div style="font-size:11px;color:var(--text3)">${label}: ${team.map((m,i) =>
+        `<span style="opacity:${m.hp <= 0 ? 0.3 : 1};${i === monIdx ? 'outline:2px solid var(--accent2);border-radius:4px;' : ''}">${m.icon}</span>`
+      ).join(' ')}</div>`;
+    roster.innerHTML = renderRoster(myDisplayTeam, myDisplayIdx, O.myName) + renderRoster(oppDisplayTeam, oppDisplayIdx, O.oppName);
+  } else {
+    roster.innerHTML = '';
+  }
+}
+
+function renderBattleMonkey(divId, mon) {
+  const el = document.getElementById(divId);
+  if (!el || !mon) return;
+  const hpPct = Math.max(0, (mon.hp / mon.maxHp) * 100);
+  const hpColor = hpPct > 50 ? 'var(--green)' : hpPct > 25 ? 'var(--yellow)' : 'var(--red)';
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="font-size:32px">${mon.icon}</span>
+      <div>
+        <div style="font-family:Fredoka,sans-serif;font-size:15px">${mon.name} <span style="font-size:11px;color:var(--text2)">Lv${mon.level || 1}</span></div>
+        <div style="font-size:12px;color:${hpColor}">❤️ ${mon.hp}/${mon.maxHp}</div>
+      </div>
+    </div>
+    <div style="background:var(--card2);border-radius:4px;height:6px;margin-bottom:8px">
+      <div style="background:${hpColor};height:100%;border-radius:4px;width:${hpPct}%;transition:width 0.3s"></div>
+    </div>
+    <div style="font-size:11px;display:flex;gap:8px;flex-wrap:wrap">
+      <span style="color:var(--red)">⚔️ ${mon.atk}</span>
+      <span style="color:var(--accent3)">🛡 ${mon.def}</span>
+      <span style="color:var(--yellow)">💨 ${mon.spd}</span>
+      ${mon.statusEffects?.some(s => s.type === 'burn') ? '<span style="color:var(--red)">🔥 Burning</span>' : ''}
+    </div>
+    ${mon.spells?.length > 0 ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${mon.spells.map(s => `<span style="font-size:10px;background:var(--spell-bg);border:1px solid var(--spell-border);color:var(--spell);padding:1px 5px;border-radius:5px">${iconInline(s.icon,12)} ${s.name}</span>`).join('')}</div>` : ''}`;
+}
+
+function renderFieldEffects() {
+  const b = G.battle;
+  if (!b) return;
+  const el = document.getElementById('field-effects-display');
+  const title = document.getElementById('field-effects-title');
+  if (!el) return;
+  if (!b.fieldEffects?.length) { el.innerHTML = ''; title.style.display = 'none'; return; }
+  title.style.display = 'block';
+  el.innerHTML = b.fieldEffects.map(fe =>
+    `<div class="field-effect splash-effect">${iconInline(fe.icon,16)} ${fe.name} (${fe.turnsLeft === Infinity ? 'permanent' : fe.turnsLeft + ' turn' + (fe.turnsLeft !== 1 ? 's' : '')})</div>`
+  ).join('');
+}
+
+function renderPotionHand() {
+  const b = G.battle;
+  const hand = document.getElementById('potion-hand');
+  const title = document.getElementById('potion-choice-title');
+  if (!b || !hand) return;
+
+  if (b.phase === 'done') {
+    hand.innerHTML = '';
+    title.textContent = 'Battle over!';
+    return;
+  }
+
+  if (O.myPotionChoice !== null) {
+    title.textContent = '✓ Choice locked in — waiting for opponent...';
+    hand.innerHTML = '';
+    return;
+  }
+
+  title.textContent = 'Choose a potion or attack:';
+  // Host uses myPotions, guest uses oppPotions (since battle state is from host's perspective)
+  const myPotions = O.isHost ? b.myPotions : b.oppPotions;
+  const available = myPotions.filter(p => !p.used);
+  hand.innerHTML = '';
+
+  available.forEach(pot => {
+    const typeClass = pot.type === 'consume' ? 'consume-potion' : 'splash-potion';
+    const typeLabel = pot.type === 'consume' ? 'consume-label' : 'splash-label';
+    hand.innerHTML += `
+      <div class="potion-card ${typeClass}" onclick="playPotion('${pot.id}')">
+        <div class="potion-card-icon">${iconInline(pot.icon, 28)}</div>
+        <div class="potion-card-name">${pot.name}</div>
+        <div class="potion-card-type ${typeLabel}">${pot.type} · Lv${pot.level}</div>
+        <div class="potion-card-effect">${pot.effect.desc}</div>
+      </div>`;
+  });
+
+  hand.innerHTML += `<div class="skip-btn-wrap"><button class="btn btn-secondary" onclick="skipPotion()">⚔️ Attack</button></div>`;
+}
+
+// ============================================================
+// SHOP / BREW / SPELLBOOK / LOADOUT — reuse from multiplayer
+// with G.players[0] as active player always
+// ============================================================
+
+// These rendering functions reference G.players[0] directly
+// (no activePlayer switching needed — each client only manages their own state)
+
+function renderShop() {
+  const p = G.players[0];
+  document.getElementById('shop-title').textContent = `🏪 World ${G.world} Shop`;
+  document.getElementById('shop-bananas').textContent = `${p.bananas}🍌`;
+  document.getElementById('shop-player-label').textContent = O.myName;
+
+  // Monkey display
+  const monDisplay = document.getElementById('shop-monkey-display');
+  monDisplay.innerHTML = '';
+  p.monkeys.forEach(mon => {
+    monDisplay.innerHTML += `
+      <div style="display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;flex:1;min-width:180px">
+        <span style="font-size:36px">${mon.icon}</span>
+        <div style="flex:1">
+          <div style="font-family:Fredoka,sans-serif;font-size:15px;margin-bottom:6px">${mon.name} <span style="font-size:11px;color:var(--text2)">Lv${mon.level}</span></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <span style="font-size:12px;font-weight:700;color:var(--green)">❤️ ${mon.hp}/${mon.maxHp}</span>
+            <span style="font-size:12px;font-weight:700;color:var(--red)">⚔️ ${mon.atk} ATK</span>
+            <span style="font-size:12px;font-weight:700;color:var(--accent3)">🛡 ${mon.def} DEF</span>
+            <span style="font-size:12px;font-weight:700;color:var(--yellow)">💨 ${mon.spd} SPD</span>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  const hasSpoon = !!(p.inventory.brewingTools?.plastic_spoon);
+  const roll = p.shopRoll;
+  const w1Roll = roll?.w1 || [];
+  const w2Roll = roll?.w2 || [];
+
+  // Flasks
+  const fs = document.getElementById('flask-shop');
+  fs.innerHTML = '';
+  Object.values(FLASKS).forEach(f => {
+    const inCart = p.cart.filter(c => c.id === f.id).length;
+    fs.innerHTML += `
+      <div class="shop-item" onclick="addToCart('flask','${f.id}')">
+        <div class="shop-item-icon">${f.icon}</div>
+        <div class="shop-item-name">${f.name}</div>
+        <div class="shop-item-cost">${f.cost}🍌</div>
+        <div class="shop-item-desc">${f.desc}</div>
+        ${inCart > 0 ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${inCart}</div>` : ''}
+      </div>`;
+  });
+
+  // W1 ingredients
+  const is = document.getElementById('ingredient-shop');
+  is.innerHTML = '';
+  w1Roll.forEach((ingId, slotIdx) => {
+    const ing = INGREDIENTS[ingId];
+    const slotKey = `w1_${slotIdx}`;
+    const inCart = p.cart.filter(c => c.slotIdx === slotKey).length > 0;
+    const purchased = p.purchasedSlots?.includes(slotKey);
+    if (purchased) return;
+    const displayCost = hasSpoon ? Math.floor(ing.cost * 0.75) : ing.cost;
+    const costHtml = hasSpoon
+      ? `<span style="text-decoration:line-through;color:var(--text3);font-size:11px">${ing.cost}🍌</span> <span style="color:var(--green)">${displayCost}🍌</span>`
+      : `${ing.cost}🍌`;
+    is.innerHTML += `
+      <div class="shop-item ${inCart ? 'selected' : ''}" onclick="addToCart('ingredient','${ingId}','${slotKey}')">
+        <div class="shop-item-type type-ingredient">ingredient</div>
+        <div class="shop-item-icon">${ing.icon}</div>
+        <div class="shop-item-name">${ing.name}</div>
+        <div class="shop-item-cost">${costHtml}</div>
+        <div class="shop-item-desc">${ing.desc.split(' · ').map(d => `<div>${d}</div>`).join('')}</div>
+        ${inCart ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</div>` : ''}
+      </div>`;
+  });
+
+  const w2Card = document.getElementById('w2-ingredient-card');
+  const spoonCard = document.getElementById('spoon-card');
+  const cauldronCard = document.getElementById('cauldron-card');
+  const toolCardsWrapper = document.getElementById('brewing-tool-cards');
+
+  if ((G.world || 1) >= 2 && w2Roll.length > 0) {
+    w2Card.style.display = 'block';
+    const is2 = document.getElementById('ingredient-shop-w2');
+    is2.innerHTML = '';
+    w2Roll.forEach((ingId, slotIdx) => {
+      const ing = WORLD_2_INGREDIENTS[ingId];
+      const slotKey = `w2_${slotIdx}`;
+      const inCart = p.cart.filter(c => c.slotIdx === slotKey).length > 0;
+      const purchased = p.purchasedSlots?.includes(slotKey);
+      if (purchased) return;
+      const displayCost = hasSpoon ? Math.floor(ing.cost * 0.75) : ing.cost;
+      const costHtml = hasSpoon
+        ? `<span style="text-decoration:line-through;color:var(--text3);font-size:11px">${ing.cost}🍌</span> <span style="color:var(--green)">${displayCost}🍌</span>`
+        : `${ing.cost}🍌`;
+      is2.innerHTML += `
+        <div class="shop-item ${inCart ? 'selected' : ''}" onclick="addToCart('ingredient_w2','${ingId}','${slotKey}')">
+          <div class="shop-item-type type-ingredient" style="background:var(--red)">W2</div>
+          <div class="shop-item-icon">${ing.icon}</div>
+          <div class="shop-item-name">${ing.name}</div>
+          <div class="shop-item-cost">${costHtml}</div>
+          <div class="shop-item-desc">${ing.desc.split(' · ').map(d => `<div>${d}</div>`).join('')}</div>
+          ${inCart ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</div>` : ''}
+        </div>`;
+    });
+
+    const owned = p.inventory.brewingTools || {};
+    const renderToolSlot = (rollId, slotKey, containerId, cardEl) => {
+      if (!rollId) { cardEl.style.display = 'none'; return; }
+      const tool = BREWING_TOOLS[rollId];
+      const alreadyOwned = owned[rollId];
+      const purchased = p.purchasedSlots?.includes(slotKey);
+      cardEl.style.display = 'block';
+      const inCart = p.cart.some(c => c.slotIdx === slotKey);
+      document.getElementById(containerId).innerHTML = alreadyOwned || purchased
+        ? `<p style="color:var(--text3);font-size:12px">Already owned</p>`
+        : `<div class="shop-item ${inCart ? 'selected' : ''}" onclick="addToCart('tool','${tool.id}','${slotKey}')">
+            <div class="shop-item-type type-ingredient" style="background:var(--accent3)">tool</div>
+            <div class="shop-item-icon">${tool.icon}</div>
+            <div class="shop-item-name">${tool.name}</div>
+            <div class="shop-item-cost">${tool.cost}🍌</div>
+            <div class="shop-item-desc">${tool.desc}</div>
+            ${inCart ? `<div style="position:absolute;top:8px;left:8px;background:var(--accent);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</div>` : ''}
+          </div>`;
+    };
+
+    toolCardsWrapper.style.display = (roll.spoon || roll.cauldron) ? 'flex' : 'none';
+    renderToolSlot(roll.spoon, 'tool_spoon', 'spoon-shop', spoonCard);
+    renderToolSlot(roll.cauldron, 'tool_cauldron', 'cauldron-shop', cauldronCard);
+  } else {
+    w2Card.style.display = 'none';
+    toolCardsWrapper.style.display = 'none';
+    spoonCard.style.display = 'none';
+    cauldronCard.style.display = 'none';
+  }
+
+  updateCartDisplay();
+}
+
+function addToCart(type, id, slotIdx) {
+  const p = G.players[0];
+  const ing = type === 'ingredient' ? INGREDIENTS[id] : type === 'ingredient_w2' ? WORLD_2_INGREDIENTS[id] : type === 'flask' ? Object.values(FLASKS).find(f => f.id === id) : BREWING_TOOLS[id];
+  if (!ing) return;
+  const hasSpoon = !!(p.inventory.brewingTools?.plastic_spoon);
+  const cost = (type === 'ingredient' || type === 'ingredient_w2') && hasSpoon ? Math.floor(ing.cost * 0.75) : ing.cost;
+
+  if (type === 'flask') {
+    const inCart = p.cart.filter(c => c.id === id).length;
+    p.cart.push({ type, id, cost, slotIdx: `flask_${id}_${inCart}` });
+  } else if (type === 'ingredient' || type === 'ingredient_w2') {
+    const alreadyInCart = p.cart.some(c => c.slotIdx === slotIdx);
+    if (alreadyInCart) { p.cart = p.cart.filter(c => c.slotIdx !== slotIdx); renderShop(); return; }
+    p.cart.push({ type, id, cost, slotIdx });
+  } else if (type === 'tool') {
+    const alreadyInCart = p.cart.some(c => c.slotIdx === slotIdx);
+    if (alreadyInCart) { p.cart = p.cart.filter(c => c.slotIdx !== slotIdx); renderShop(); return; }
+    p.cart.push({ type, id, cost, slotIdx });
+  }
+  renderShop();
+}
+
+function clearCart() {
+  G.players[0].cart = [];
+  renderShop();
+}
+
+function updateCartDisplay() {
+  const p = G.players[0];
+  const total = p.cart.reduce((s, c) => s + c.cost, 0);
+  const affordable = total <= p.bananas;
+  document.getElementById('cart-display').innerHTML = p.cart.length === 0
+    ? `<p style="color:var(--text3);font-size:12px">Cart empty</p>`
+    : `<div style="font-size:13px;margin-bottom:8px">Cart: ${p.cart.map(c => c.id).join(', ')} — <strong style="color:${affordable ? 'var(--green)' : 'var(--red)'}">${total}🍌</strong></div>`;
+}
+
+function buyCart() {
+  const p = G.players[0];
+  const total = p.cart.reduce((s, c) => s + c.cost, 0);
+  if (total > p.bananas) { flashMessage('Not enough 🍌!'); return; }
+  p.bananas -= total;
+  p.cart.forEach(item => {
+    if (item.type === 'flask') {
+      if (item.id === 'consume_flask') p.inventory.consume_flask++;
+      else p.inventory.splash_flask++;
+    } else if (item.type === 'ingredient') {
+      p.inventory.ingredients[item.id] = (p.inventory.ingredients[item.id] || 0) + 1;
+      p.purchasedSlots = [...(p.purchasedSlots || []), item.slotIdx];
+    } else if (item.type === 'ingredient_w2') {
+      if (!p.inventory.ingredients_w2) p.inventory.ingredients_w2 = {};
+      p.inventory.ingredients_w2[item.id] = (p.inventory.ingredients_w2[item.id] || 0) + 1;
+      p.purchasedSlots = [...(p.purchasedSlots || []), item.slotIdx];
+    } else if (item.type === 'tool') {
+      const tool = BREWING_TOOLS[item.id];
+      if (tool) {
+        if (!p.inventory.brewingTools) p.inventory.brewingTools = {};
+        p.inventory.brewingTools[item.id] = true;
+        p.purchasedSlots = [...(p.purchasedSlots || []), item.slotIdx];
+      }
+    }
+  });
+  p.cart = [];
+  renderShop();
+}
+
+// ============================================================
+// BREW
+// ============================================================
+let brewSlots = [null, null, null];
+let selectedBrewType = null;
+
+function renderBrew() {
+  const p = G.players[0];
+  document.getElementById('brew-bananas').textContent = `${p.bananas}🍌`;
+  brewSlots = [null, null, null];
+  selectedBrewType = null;
+  renderBrewSlots();
+  renderIngredientList();
+  renderBrewedList();
+}
+
+function renderIngredientList() {
+  const p = G.players[0];
+  const il = document.getElementById('ingredient-list');
+  il.innerHTML = '';
+  const allIngs = {
+    ...Object.fromEntries(Object.entries(p.inventory.ingredients).filter(([,v]) => v > 0)),
+    ...Object.fromEntries(Object.entries(p.inventory.ingredients_w2 || {}).filter(([,v]) => v > 0))
+  };
+  if (Object.keys(allIngs).length === 0) { il.innerHTML = '<p style="color:var(--text3);font-size:12px">No ingredients</p>'; return; }
+  Object.entries(allIngs).forEach(([id, count]) => {
+    const ing = getIngredient(id);
+    if (!ing) return;
+    il.innerHTML += `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="addIngToBrew('${id}')">
+        <span class="ing-icon">${ing.icon}</span>
+        <div style="flex:1"><div style="font-size:12px">${ing.name}</div><div style="font-size:10px;color:var(--text3)">×${count} available</div></div>
+        <button class="btn btn-secondary btn-sm">Add</button>
+      </div>`;
+  });
+
+  const fl = document.getElementById('flask-list');
+  fl.innerHTML = `<div style="font-size:12px;color:var(--text2)">🧪 Consume: ${p.inventory.consume_flask} &nbsp; 💦 Splash: ${p.inventory.splash_flask}</div>`;
+}
+
+function addIngToBrew(ingId) {
+  const slot = brewSlots.findIndex(s => s === null);
+  if (slot === -1) { flashMessage('Cauldron full (max 3 ingredients)'); return; }
+  const p = G.players[0];
+  const count = getIngredientInventoryCount(p, ingId);
+  const alreadyInBrew = brewSlots.filter(s => s === ingId).length;
+  if (alreadyInBrew >= count) { flashMessage('No more of that ingredient!'); return; }
+  brewSlots[slot] = ingId;
+  renderBrewSlots();
+  updateBrewPreview();
+}
+
+function renderBrewSlots() {
+  const container = document.getElementById('brew-slots');
+  container.innerHTML = '';
+  brewSlots.forEach((ingId, i) => {
+    const ing = ingId ? getIngredient(ingId) : null;
+    container.innerHTML += `
+      <div class="brew-slot ${ing ? 'filled' : ''}"
+        ondragover="event.preventDefault()"
+        ondrop="dropIngToBrew(event, ${i})"
+        onclick="${ing ? `removeIngFromBrew(${i})` : ''}">
+        ${ing ? `<span class="brew-slot-icon">${ing.icon}</span><span class="brew-slot-name">${ing.name}</span>` : `<span style="font-size:11px;color:var(--text3)">drop here</span>`}
+      </div>`;
+  });
+}
+
+function removeIngFromBrew(slotIdx) {
+  brewSlots[slotIdx] = null;
+  renderBrewSlots();
+  updateBrewPreview();
+}
+
+function dropIngToBrew(event, slotIdx) {
+  event.preventDefault();
+  const ingId = event.dataTransfer.getData('text/plain');
+  if (!ingId) return;
+  if (brewSlots[slotIdx] !== null) return;
+  const p = G.players[0];
+  const count = getIngredientInventoryCount(p, ingId);
+  const alreadyInBrew = brewSlots.filter(s => s === ingId).length;
+  if (alreadyInBrew >= count) { flashMessage('No more!'); return; }
+  brewSlots[slotIdx] = ingId;
+  renderBrewSlots();
+  updateBrewPreview();
+}
+
+function selectBrewType(type) {
+  selectedBrewType = type;
+  document.querySelectorAll('.brew-type-btn').forEach(b => b.classList.remove('active'));
+  const map = { consume: 'brew-consume-btn', splash: 'brew-splash-btn', spell: 'brew-spell-btn' };
+  document.getElementById(map[type])?.classList.add('active');
+  updateBrewPreview();
+}
+
+function updateBrewPreview() {
+  const filled = brewSlots.filter(Boolean);
+  if (filled.length === 0 || !selectedBrewType) { document.getElementById('brew-preview').style.display = 'none'; return; }
+  const ingId = filled[0];
+  const ing = getIngredient(ingId);
+  if (!ing || !ing.effects[selectedBrewType]) { document.getElementById('brew-preview').style.display = 'none'; return; }
+  const lv = Math.min(filled.length, 3);
+  const eff = ing.effects[selectedBrewType](lv);
+  const icon = ing.icon;
+  const name = `${iconInline(ing.icon,16)} ${ing.name} ${selectedBrewType === 'spell' ? 'Spell' : selectedBrewType === 'consume' ? 'Consumable' : 'Splash'} · Level ${lv}`;
+  document.getElementById('brew-preview').style.display = 'block';
+  document.getElementById('brew-preview-title').innerHTML = name;
+  document.getElementById('brew-preview-desc').textContent = eff.desc;
+}
+
+function brewPotion() {
+  const p = G.players[0];
+  const filled = brewSlots.filter(Boolean);
+  if (filled.length === 0) { flashMessage('Add ingredients first!'); return; }
+  if (!selectedBrewType) { flashMessage('Select a potion type!'); return; }
+  const ingId = filled[0];
+  if (new Set(filled).size > 1) { flashMessage('Mix potions: use same ingredient for now'); return; }
+  const ing = getIngredient(ingId);
+  if (!ing) return;
+  if (selectedBrewType === 'consume' && p.inventory.consume_flask <= 0) { flashMessage('No consume flasks!'); return; }
+  if (selectedBrewType === 'splash' && p.inventory.splash_flask <= 0) { flashMessage('No splash flasks!'); return; }
+
+  const lv = Math.min(filled.length, 3);
+  const hasStainless = !!(p.inventory.brewingTools?.stainless_pot);
+  const hasBucket = !!(p.inventory.brewingTools?.halloween_bucket);
+  let actualLv = lv;
+  if (hasStainless && lv === 1 && Math.random() < 0.15) actualLv = 2;
+
+  let eff = ing.effects[selectedBrewType](actualLv);
+  if (hasBucket) {
+    if (eff.value !== undefined) eff.value++;
+    if (eff.hp !== undefined) eff.hp++;
+  }
+
+  const potion = {
+    id: `${ingId}_${selectedBrewType}_${Date.now()}`,
+    ingredientId: ingId,
+    name: `${ing.name} ${selectedBrewType === 'spell' ? 'Spell' : selectedBrewType === 'consume' ? 'Consumable' : 'Splash'}`,
+    icon: ing.icon,
+    type: selectedBrewType,
+    level: actualLv,
+    effect: eff
+  };
+
+  p.brewedPotions.push(potion);
+
+  // Deduct ingredients
+  filled.forEach(id => {
+    if (p.inventory.ingredients[id]) p.inventory.ingredients[id]--;
+    else if (p.inventory.ingredients_w2?.[id]) p.inventory.ingredients_w2[id]--;
+  });
+  if (selectedBrewType === 'consume') p.inventory.consume_flask--;
+  if (selectedBrewType === 'splash') p.inventory.splash_flask--;
+
+  brewSlots = [null, null, null];
+  selectedBrewType = null;
+  document.querySelectorAll('.brew-type-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('brew-preview').style.display = 'none';
+  renderBrewSlots();
+  renderIngredientList();
+  renderBrewedList();
+}
+
+function clearBrewSlots() {
+  brewSlots = [null, null, null];
+  selectedBrewType = null;
+  document.querySelectorAll('.brew-type-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('brew-preview').style.display = 'none';
+  renderBrewSlots();
+}
+
+function renderBrewedList() {
+  const p = G.players[0];
+  const el = document.getElementById('brewed-list');
+  const count = document.getElementById('brewed-count');
+  count.textContent = p.brewedPotions.length;
+  if (p.brewedPotions.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:12px">Nothing brewed yet</p>'; return; }
+  el.innerHTML = '';
+  p.brewedPotions.forEach((pot, idx) => {
+    const typeColor = pot.type === 'spell' ? 'var(--spell)' : pot.type === 'consume' ? 'var(--consume)' : 'var(--splash)';
+    el.innerHTML += `
+      <div style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px">
+        <span style="font-size:20px">${iconInline(pot.icon,20)}</span>
+        <div style="flex:1"><div style="font-size:12px;font-weight:700">${pot.name} Lv${pot.level}</div><div style="font-size:11px;color:var(--text2)">${pot.effect.desc}</div></div>
+        <span style="font-size:10px;font-weight:700;color:${typeColor}">${pot.type}</span>
+        <button class="btn btn-secondary btn-sm" onclick="discardPotion(${idx})">✕</button>
+      </div>`;
+  });
+}
+
+function discardPotion(idx) {
+  const p = G.players[0];
+  const pot = p.brewedPotions[idx];
+  if (!pot) return;
+  if (pot.type === 'consume') p.inventory.consume_flask++;
+  if (pot.type === 'splash') p.inventory.splash_flask++;
+  p.brewedPotions.splice(idx, 1);
+  renderBrewedList();
+  renderIngredientList();
+}
+
+// ============================================================
+// SPELLBOOK
+// ============================================================
+function renderSpellbook() {
+  const p = G.players[0];
+  const monDiv = document.getElementById('spellbook-monkeys');
+  const spellDiv = document.getElementById('spellbook-spells');
+  monDiv.innerHTML = '';
+  spellDiv.innerHTML = '';
+
+  p.monkeys.forEach((mon, mIdx) => {
+    let slotsHtml = '';
+    for (let i = 0; i < 3; i++) {
+      const spell = mon.spells[i];
+      slotsHtml += spell
+        ? `<div class="spell-slot filled" draggable="true"
+              ondragstart="dragSpell(event,${mIdx},${i})"
+              ondragover="event.preventDefault()"
+              ondrop="dropSpell(event,${mIdx},${i})"
+              style="cursor:grab">
+              ☰ ${iconInline(spell.icon,14)} ${spell.name} Lv${spell.level}
+              <button onclick="removeSpell(${mIdx},${i})" style="float:right;background:none;border:none;color:var(--text3);cursor:pointer">✕</button>
+           </div>`
+        : `<div class="spell-slot"
+              ondragover="event.preventDefault()"
+              ondrop="dropSpell(event,${mIdx},${i})">slot ${i+1}</div>`;
+    }
+    monDiv.innerHTML += `
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:24px">${mon.icon}</span>
+          <span>${mon.name}</span>
+          <span style="color:var(--text3);font-size:11px">Lv${mon.level} · ❤️${mon.hp}/${mon.maxHp} · ⚔️${mon.atk} · 🛡${mon.def} · 💨${mon.spd}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">${slotsHtml}</div>
+      </div>`;
+  });
+
+  const spells = p.brewedPotions.filter(s => s.type === 'spell' && !p.monkeys.some(m => m.spells.find(ms => ms.id === s.id)));
+  if (spells.length === 0) { spellDiv.innerHTML = '<p style="color:var(--text3);font-size:12px">No unassigned spells</p>'; return; }
+  spells.forEach(spell => {
+    spellDiv.innerHTML += `
+      <div class="potion-card spell-potion" draggable="true"
+        ondragstart="event.dataTransfer.setData('spellId','${spell.id}')"
+        onclick="clickAssignSpell('${spell.id}')">
+        <div class="potion-card-icon">${iconInline(spell.icon,28)}</div>
+        <div class="potion-card-name">${spell.name} Lv${spell.level}</div>
+        <div class="potion-card-effect">${spell.effect.desc}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">Click to assign →</div>
+      </div>`;
+  });
+}
+
+let dragSpellData = null;
+function dragSpell(event, monkeyIdx, slotIdx) {
+  dragSpellData = { monkeyIdx, slotIdx };
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function dropSpell(event, monkeyIdx, slotIdx) {
+  event.preventDefault();
+  const spellId = event.dataTransfer.getData('spellId');
+  if (spellId) { assignSpell(spellId, monkeyIdx); return; }
+  if (!dragSpellData) return;
+  const from = dragSpellData; dragSpellData = null;
+  if (from.monkeyIdx === monkeyIdx && from.slotIdx === slotIdx) return;
+  const p = G.players[0];
+  const fromMon = p.monkeys[from.monkeyIdx];
+  const toMon = p.monkeys[monkeyIdx];
+  const fromSpell = fromMon.spells[from.slotIdx];
+  if (!fromSpell) return;
+  if (from.monkeyIdx === monkeyIdx) {
+    fromMon.spells.splice(from.slotIdx, 1);
+    fromMon.spells.splice(slotIdx, 0, fromSpell);
+  }
+  renderSpellbook();
+}
+
+function clickAssignSpell(spellId) {
+  const p = G.players[0];
+  const target = p.monkeys.find(m => m.spells.length < 3);
+  if (!target) { flashMessage('All monkeys have 3 spells!'); return; }
+  assignSpell(spellId, p.monkeys.indexOf(target));
+}
+
+function assignSpell(spellId, monkeyIdx) {
+  const p = G.players[0];
+  const spell = p.brewedPotions.find(s => s.id === spellId);
+  const mon = p.monkeys[monkeyIdx];
+  if (!spell || mon.spells.length >= 3) return;
+  applySpellToMonkey(mon, spell);
+  mon.spells.push(spell);
+  renderSpellbook();
+}
+
+function applySpellToMonkey(mon, spell) {
+  const eff = spell.effect;
+  if (eff.type === 'bananaPeelSpell') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
+  if (eff.type === 'spiderEyeSpell') mon.atk += eff.value;
+  if (eff.type === 'newtSpell') mon.def += eff.value;
+  if (eff.type === 'pumiceStoneSpell') mon.pumiceCharges = (mon.pumiceCharges || 0) + eff.charges;
+  if (eff.type === 'theBananaSpell') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
+  if (eff.type === 'wholeBananaSpell') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
+  if (eff.type === 'sandDustSpell') mon.splashNullifyTurns = (mon.splashNullifyTurns || 0) + eff.turns;
+}
+
+function removeSpell(monkeyIdx, slotIdx) {
+  const p = G.players[0];
+  const mon = p.monkeys[monkeyIdx];
+  const spell = mon.spells[slotIdx];
+  if (!spell) return;
+  const eff = spell.effect;
+  if (eff.type === 'bananaPeelSpell') { mon.maxHp -= eff.value; mon.hp = Math.min(mon.hp, mon.maxHp); }
+  if (eff.type === 'spiderEyeSpell') mon.atk -= eff.value;
+  if (eff.type === 'newtSpell') mon.def -= eff.value;
+  mon.spells.splice(slotIdx, 1);
+  renderSpellbook();
+}
+
+// ============================================================
+// LOADOUT
+// ============================================================
+let dragMonkeyIdx = null;
+let dragPotionId = null;
+let dragGridIdx = null;
+
+function renderLoadout() {
+  const p = G.players[0];
+  document.getElementById('loadout-player-name').textContent = O.myName;
+
+  // Monkey order
+  const monDiv = document.getElementById('loadout-monkeys');
+  monDiv.innerHTML = '';
+  p.monkeys.forEach((mon, idx) => {
+    const hpPct = (mon.hp / mon.maxHp) * 100;
+    const hpClass = hpPct > 50 ? 'var(--green)' : hpPct > 25 ? 'var(--yellow)' : 'var(--red)';
+    monDiv.innerHTML += `
+      <div class="spell-slot" draggable="true"
+        ondragstart="dragMonkeyOrder(event, ${idx})"
+        ondragover="event.preventDefault()"
+        ondrop="dropMonkeyOrder(event, ${idx})"
+        style="display:flex;align-items:center;gap:12px;padding:10px 12px;cursor:grab;user-select:none">
+        <span style="color:var(--text3);font-size:14px">☰</span>
+        <span style="font-size:28px">${mon.icon}</span>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span style="font-family:Fredoka,sans-serif;font-size:14px">${mon.name}</span>
+            <span style="font-size:10px;color:var(--text3)">Lv${mon.level}</span>
+            ${idx === 0 ? `<span style="font-size:10px;font-weight:700;background:var(--accent2);color:black;padding:1px 6px;border-radius:8px">1st</span>` : `<span style="font-size:10px;color:var(--text3)">#${idx+1}</span>`}
+          </div>
+          <div style="display:flex;gap:8px;font-size:11px;flex-wrap:wrap">
+            <span style="color:${hpClass}">❤️ ${mon.hp}/${mon.maxHp}</span>
+            <span style="color:var(--red)">⚔️ ${mon.atk}</span>
+            <span style="color:var(--accent3)">🛡 ${mon.def}</span>
+            <span style="color:var(--yellow)">💨 ${mon.spd}</span>
+          </div>
+          ${mon.spells.length > 0 ? `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${mon.spells.map(s => `<span style="font-size:10px;background:var(--spell-bg);border:1px solid var(--spell-border);color:var(--spell);padding:1px 5px;border-radius:5px">${iconInline(s.icon,14)} ${s.name}</span>`).join('')}</div>` : ''}
+        </div>
+      </div>`;
+  });
+
+  renderBattleGrid();
+
+  // Available battle potions
+  const potDiv = document.getElementById('loadout-potions');
+  potDiv.innerHTML = '';
+  const battlePots = p.brewedPotions.filter(pot => pot.type !== 'spell' && !p.battlePotions.find(bp => bp.id === pot.id));
+  if (battlePots.length === 0) { potDiv.innerHTML = '<p style="color:var(--text3);font-size:12px">No battle potions brewed</p>'; return; }
+  battlePots.forEach(pot => {
+    const typeColor = pot.type === 'consume' ? 'var(--consume)' : 'var(--splash)';
+    potDiv.innerHTML += `
+      <div style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer" onclick="addToBattleInv('${pot.id}')">
+        <span style="font-size:18px">${iconInline(pot.icon,18)}</span>
+        <div style="flex:1"><div style="font-size:12px;font-weight:700">${pot.name} Lv${pot.level}</div><div style="font-size:11px;color:var(--text2)">${pot.effect.desc}</div></div>
+        <span style="font-size:10px;font-weight:700;color:${typeColor}">${pot.type}</span>
+        <button class="btn btn-secondary btn-sm">+Add</button>
+      </div>`;
+  });
+}
+
+function renderBattleGrid() {
+  const p = G.players[0];
+  const grid = document.getElementById('battle-inv-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const pot = p.battlePotions[i];
+    grid.innerHTML += pot
+      ? `<div class="inv-cell filled" draggable="true"
+              ondragstart="dragGridPot(event,'${pot.id}')"
+              ondragover="event.preventDefault()"
+              ondrop="dropGridPot(event,${i})"
+              onclick="removeFromBattleInv('${pot.id}')">
+            <span class="inv-cell-icon">${iconInline(pot.icon,20)}</span>
+            <span class="inv-cell-name">${pot.name}</span>
+         </div>`
+      : `<div class="inv-cell"
+              ondragover="event.preventDefault()"
+              ondrop="dropGridPot(event,${i})">
+            <span class="inv-cell-empty">+</span>
+         </div>`;
+  }
+}
+
+function addToBattleInv(potId) {
+  const p = G.players[0];
+  if (p.battlePotions.length >= 9) { flashMessage('Battle inventory full (9 max)!'); return; }
+  const pot = p.brewedPotions.find(bp => bp.id === potId);
+  if (!pot) return;
+  p.battlePotions.push(pot);
+  renderLoadout();
+}
+
+function removeFromBattleInv(potId) {
+  const p = G.players[0];
+  p.battlePotions = p.battlePotions.filter(bp => bp.id !== potId);
+  renderBattleGrid();
+  renderLoadout();
+}
+
+function dragGridPot(event, potId) {
+  dragPotionId = potId;
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function dropGridPot(event, toIdx) {
+  event.preventDefault();
+  const p = G.players[0];
+  if (!dragPotionId) return;
+  const fromIdx = p.battlePotions.findIndex(bp => bp.id === dragPotionId);
+  if (fromIdx === -1) return;
+  const moved = p.battlePotions.splice(fromIdx, 1)[0];
+  p.battlePotions.splice(toIdx, 0, moved);
+  dragPotionId = null;
+  renderBattleGrid();
+}
+
+function dragMonkeyOrder(event, fromIdx) {
+  dragMonkeyIdx = fromIdx;
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function dropMonkeyOrder(event, toIdx) {
+  event.preventDefault();
+  if (dragMonkeyIdx === null || dragMonkeyIdx === toIdx) return;
+  const p = G.players[0];
+  const moved = p.monkeys.splice(dragMonkeyIdx, 1)[0];
+  p.monkeys.splice(toIdx, 0, moved);
+  dragMonkeyIdx = null;
+  renderLoadout();
+}
+
+// ============================================================
+// BATTLE START SPELLS (same as singleplayer)
+// ============================================================
+function applyBattleStartSpells(player, monCopy, playerIdx) {
+  // Bamboo
+  monCopy.spells && monCopy.spells.forEach((spell, idx) => {
+    if (spell.effect.type === 'bambooSpell' && idx > 0) {
+      const above = monCopy.spells[idx - 1];
+      if (above) {
+        const ing = getIngredient(above.ingredientId);
+        if (ing?.effects?.spell) {
+          const copied = ing.effects.spell(spell.effect.copyLevel);
+          if (copied.type === 'spiderEyeSpell') monCopy.atk += copied.value;
+          if (copied.type === 'bananaPeelSpell' || copied.type === 'theBananaSpell' || copied.type === 'wholeBananaSpell') { monCopy.maxHp += copied.value; monCopy.hp = Math.min(monCopy.hp + copied.value, monCopy.maxHp); }
+          if (copied.type === 'newtSpell') monCopy.def += copied.value;
+          addLog('system', `🎋 Bamboo Spell — ${monCopy.name} copies ${above.name} at Lv${spell.effect.copyLevel}!`);
+        }
+      }
+    }
+  });
+
+  // Spirit Water Spell
+  monCopy.spells && monCopy.spells.forEach((spell, idx) => {
+    if (spell.effect.type !== 'spiritWaterSpell') return;
+    const next = monCopy.spells[idx + 1];
+    if (!next) { addLog('info', `💧 Spirit Water Spell — ${monCopy.name}: no spell after it to boost!`); return; }
+    const pct = spell.effect.value;
+    const eff = next.effect;
+    let boost = 0;
+    if (eff.value !== undefined) {
+      boost = Math.ceil(eff.value * pct / 100);
+      eff.value += boost;
+      if (eff.type === 'spiderEyeSpell') monCopy.atk += boost;
+      if (eff.type === 'newtSpell') monCopy.def += boost;
+      if (['bananaPeelSpell','theBananaSpell','wholeBananaSpell'].includes(eff.type)) { monCopy.maxHp += boost; monCopy.hp = Math.min(monCopy.hp + boost, monCopy.maxHp); }
+    } else if (eff.chance !== undefined) { boost = Math.ceil(eff.chance * pct / 100); eff.chance = Math.min(95, eff.chance + boost); }
+    else if (eff.charges !== undefined) { boost = Math.ceil(eff.charges * pct / 100); eff.charges += boost; monCopy.pumiceCharges = (monCopy.pumiceCharges || 0) + boost; }
+    else if (eff.turns !== undefined) { boost = Math.ceil(eff.turns * pct / 100); eff.turns += boost; monCopy.splashNullifyTurns = (monCopy.splashNullifyTurns || 0) + boost; }
+    else if (eff.copyLevel !== undefined) { boost = 1; eff.copyLevel = Math.min(3, eff.copyLevel + 1); }
+    else if (eff.mult !== undefined) { boost = Math.ceil(eff.mult * pct / 100); eff.mult += boost; }
+    if (boost > 0) { eff.desc += ` (+${boost} from 💧 Spirit Water)`; addLog('system', `💧 Spirit Water Spell — ${monCopy.name}'s ${next.name} boosted by +${boost}!`); }
+  });
+
+  // Coconut Juice Spell
+  monCopy.spells && monCopy.spells.forEach(spell => {
+    if (spell.effect.type === 'coconutJuiceSpell') {
+      const spellAtk = monCopy.spells.reduce((s, sp) => sp.effect.type === 'spiderEyeSpell' ? s + sp.effect.value : s, 0);
+      const payout = spellAtk * spell.effect.mult;
+      if (payout > 0) { player.bananas += payout; addLog('info', `🥥 Coconut Juice Spell — ${monCopy.name} earns ${payout}🍌!`); }
+    }
+  });
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function flashMessage(msg) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);color:var(--text1);padding:8px 16px;border-radius:8px;font-size:13px;z-index:9999;pointer-events:none';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+showLobbyHome();
+</script>
+</body>
+</html>

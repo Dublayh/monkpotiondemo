@@ -15,8 +15,9 @@
     --card2: #243156;
     --border: #2e4080;
     --accent: #e94560;
-    --accent2: #f5a623;
+    --accent2: #ffc362;
     --accent3: #4ecdc4;
+    --accent4: #865700;
     --text: #eef2ff;
     --text2: #9baacf;
     --text3: #6070a0;
@@ -84,7 +85,8 @@
   .mode-card.solo:hover { border-color: var(--accent3); background: #1a2e2e; }
   .mode-card.multi { border-color: var(--accent); }
   .mode-card.multi:hover { border-color: var(--accent); background: #2e1a1e; }
-
+  .mode-card.creator { border-color: var(--accent4); }
+  .mode-card.creator:hover { border-color: var(--accent4); background: #695028; }
   .mode-icon { font-size: 40px; }
   .mode-title { font-family: 'Fredoka', sans-serif; font-size: 22px; }
   .mode-card.solo .mode-title { color: var(--accent3); }
@@ -99,6 +101,7 @@
   }
   .mode-card.solo .mode-tag { background: #0f2e2e; color: var(--accent3); }
   .mode-card.multi .mode-tag { background: #2e0f14; color: var(--accent); }
+  .mode-card.creator .mode-tag { background:#ffb53f; color: var(--accent4)} 
 
   .footer {
     font-size: 12px;
@@ -126,6 +129,12 @@
       <span class="mode-title">Local Multiplayer</span>
       <span class="mode-desc">Two players share one device. Take turns in the shop and brew phase, then battle it out.</span>
       <span class="mode-tag">2 players · hot seat</span>
+    </a>
+    <a class="mode-card creator" href="CharacterCreator.html">
+      <span class="mode-icon"><img src="MonkeyWizard.gif" style width="75px" height="75px"/></span>
+      <span class="mode-title">Character Creator</span>
+      <span class="mode-desc">Create your Wizard</span>
+      <span class="mode-tag">Drugs · Sex</span>
     </a>
   </div>
 

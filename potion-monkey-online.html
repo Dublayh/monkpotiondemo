@@ -903,7 +903,7 @@ const INGREDIENTS = {
     id: 'banana_peel', name: 'Banana Peel', icon: '<img src="icons/ingredients/BananaPeel.gif" style="width:36px;height:36px;object-fit:contain;image-rendering:pixelated" alt="Banana Peel">', cost: 2,
     desc: 'Spell: +1/2/3 max HP · Splash: Heal 1/2/3hp/turn for 2 turns · Consume: Heal 3/4/5hp',
     effects: {
-      spell: (lv) => ({ type: 'bananaPeelSpell', value: [5,8,12][lv-1], desc: `+${[5,8,12][lv-1]} max HP` }),
+      spell: (lv) => ({ type: 'bananaPeelSpell', value: lv, desc: `+${lv} max HP` }),
       splash: (lv) => ({ type: 'bananaPeelSplash', value: lv, turns: 2, desc: `Heal ${lv}hp/turn for 2 turns` }),
       consume: (lv) => ({ type: 'bananaPeelConsume', value: [3,4,5][lv-1], desc: `Heal ${[3,4,5][lv-1]}hp up to max` })
     }
@@ -956,12 +956,7 @@ const WORLD_2_INGREDIENTS = {
     id: 'the_banana', name: 'The Banana', icon: '🍌🍌', cost: 4, world: 2,
     desc: 'Spell: +5/8/12 max HP · Splash: 50% chance heal 5/7/10hp · Consume: Halve ATK, recover 100/200/300% of lost ATK as HP',
     effects: {
-      spell: (lv) => {
-        const ranges = [[5,15],[10,20],[15,25]];
-        const [min, max] = ranges[lv-1];
-        const value = min + Math.floor(Math.random() * (max - min + 1));
-        return { type: 'theBananaSpell', value, desc: `+${value} max HP (rolled ${min}-${max})` };
-      },
+      spell: (lv) => ({ type: 'theBananaSpell', value: [5,8,12][lv-1], desc: `+${[5,8,12][lv-1]} max HP` }),
       splash: (lv) => ({ type: 'theBananaSplash', chance: 50, value: [5,7,10][lv-1], desc: `50% chance to heal ${[5,7,10][lv-1]}hp` }),
       consume: (lv) => ({ type: 'theBananaConsume', mult: [1,2,3][lv-1], desc: `Halve ATK, recover ${[100,200,300][lv-1]}% of lost ATK as HP` })
     }
@@ -1010,7 +1005,7 @@ const WORLD_2_INGREDIENTS = {
 
 const MIX_POTIONS = {
   'banana_peel+the_banana': {
-    name: 'Whole Banana Potion', icon: '🍌✨', ingredients: ['banana_peel', 'the_banana'],
+    name: 'Whole Banana', icon: '🍌✨', ingredients: ['banana_peel', 'the_banana'],
     effects: {
       spell: (lv) => {
         const ranges = [[5,15],[10,20],[15,25]];
@@ -3074,7 +3069,7 @@ function brewPotion() {
     potion = {
       id: `mix_${selectedBrewType}_${Date.now()}`,
       ingredientId: filled.join('+'),
-      name: `${mix.name} ${selectedBrewType === 'spell' ? 'Spell' : selectedBrewType === 'consume' ? 'Consumable' : 'Splash'}`,
+      name: `${mix.isMixName || mix.name} ${selectedBrewType === 'spell' ? 'Spell' : selectedBrewType === 'consume' ? 'Consumable' : 'Splash'}`,
       icon: mix.icon, type: selectedBrewType, level: lv, effect: eff, isMix: true
     };
     [...new Set(filled)].forEach(id => {

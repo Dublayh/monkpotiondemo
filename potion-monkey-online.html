@@ -604,7 +604,7 @@
       <div id="lobby-home">
         <div class="card-title">🎮 Play Online</div>
         <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Enter your name, then host a game or join a friend's room.</p>
-        <input id="player-name-input" type="text" maxlength="16" placeholder="Your name"
+        <input id="player-name-input" type="text" maxlength="25" placeholder="Your name"
           style="width:100%;padding:10px;font-size:15px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text1);box-sizing:border-box;margin-bottom:12px">
         <button class="btn btn-primary" onclick="hostRoom()" style="width:100%;margin-bottom:10px">🏠 Host a Game</button>
         <button class="btn btn-secondary" onclick="showJoinScreen()" style="width:100%">🔗 Join a Game</button>
@@ -915,7 +915,7 @@ const INGREDIENTS = {
     }
   },
   newt: {
-    id: 'newt', name: 'Newt', icon: '🦎', cost: 5,
+    id: 'newt', name: 'Newt', icon: '🦎', cost: 3,
     desc: 'Spell: +1/2/3 DEF · Splash: -2 enemy DEF for 1/2/3 turns · Consume: +4/5/6 to next DEF',
     effects: {
       spell: (lv) => ({ type: 'newtSpell', value: lv, desc: `+${lv} DEF` }),
@@ -1483,8 +1483,8 @@ async function onRoomUpdate(row) {
   }
 
   // Catch-up: if DB already advanced to shop while we were on result
-  if (phase === 'shop' && O.phase === 'result') {
-    O.phase = 'result'; // let continueAfterBattle set it properly
+  // Catch-up: host already advanced to shop while we were processing result
+  if (phase === 'shop' && O.phase === 'result' && O.myReady) {
     continueAfterBattle(row);
     return;
   }
@@ -1507,10 +1507,10 @@ async function onRoomUpdate(row) {
 
   // Both players picked their monkey — host advances to shop
   if (phase === 'worldtransition' && O.phase === 'worldtransition') {
-    const myReady = row[`${myKey}_ready`];
-    const oppReady = row[`${oppKey}_ready`];
-    if (myReady && oppReady && O.isHost) {
-      // Host writes phase: shop to advance both players
+    const wtMyReady = row[`${myKey}_ready`];
+    const wtOppReady = row[`${oppKey}_ready`];
+    if (wtMyReady && wtOppReady && O.isHost && !O._worldTransitionAdvancing) {
+      O._worldTransitionAdvancing = true;
       await sbUpsert('online_rooms', {
         room_code: O.roomCode,
         phase: 'shop',
@@ -1518,8 +1518,6 @@ async function onRoomUpdate(row) {
         guest_ready: false,
       });
       enterShopPhase();
-    } else if (myReady && oppReady && !O.isHost) {
-      // Guest will catch the phase change via the shop catch-up below
     }
   }
 
@@ -1547,8 +1545,10 @@ function hideWaiting() {
 // SHOP PHASE
 // ============================================================
 function enterShopPhase() {
+  if (O.phase === 'shop') return; // prevent re-entry
   O.phase = 'shop';
   O.myReady = false;
+  O._worldTransitionAdvancing = false;
   const me = G.players[0];
   if (!me.shopRoll) me.shopRoll = rollShop();
   showQuitButton();
@@ -1694,7 +1694,8 @@ function enterBattlePhase(row) {
   O.myPotionChoice = null;
   O.oppPotionChoice = null;
   O._lastSeenGuestPotion = null;
-  O.battleLevel = G.level; // snapshot level so world-complete check is reliable
+  O.battleLevel = G.level;
+  lastSeenUpdatedAt = null; // reset so next poll always processes current DB state
 
   // Host initialises battle state
   if (O.isHost) {
@@ -1709,11 +1710,25 @@ function enterBattlePhase(row) {
   if (O.isHost) {
     renderBattleScreen();
     renderPotionHand();
-    if (G.battle) broadcastBattleState();
+    // Small delay so guest has time to enter battle phase and start polling
+    // before we broadcast — reduces the chance of them missing the first state
+    if (G.battle) setTimeout(() => broadcastBattleState(), 1200);
   } else {
-    // Guest waits for host to push battle state
-    document.getElementById('potion-choice-title').textContent = 'Loading battle...';
-    document.getElementById('potion-hand').innerHTML = '';
+    // Guest: check if battle_state already exists in the row we received
+    // (host may have already broadcast before our poll started watching)
+    if (row?.battle_state) {
+      applyBattleStateUpdate(row.battle_state);
+    } else {
+      // Not ready yet — poll will catch it, but do one immediate fetch as backup
+      document.getElementById('potion-choice-title').textContent = 'Loading battle...';
+      document.getElementById('potion-hand').innerHTML = '';
+      setTimeout(async () => {
+        if (O.phase === 'battle' && !G.battle) {
+          const fresh = await sbGet('online_rooms', O.roomCode);
+          if (fresh?.battle_state) applyBattleStateUpdate(fresh.battle_state);
+        }
+      }, 1500);
+    }
   }
 }
 
@@ -2258,15 +2273,18 @@ function endBattle(myWiped, oppWiped) {
   G.players[loserId].bananas += 5;
 
   broadcastBattleState().then(async () => {
-    const myKey = O.isHost ? 'host' : 'guest';
     const hostWon = winnerId === 0; // winnerId 0 = host always (host resolves battle)
+    // Write both players' updated states so guest gets correct banana count
+    const hostPlayer = O.isHost ? G.players[0] : G.players[1];
+    const guestPlayer = O.isHost ? G.players[1] : G.players[0];
     await sbUpsert('online_rooms', {
       room_code: O.roomCode,
       phase: 'result',
       host_ready: false,
       guest_ready: false,
-      host_potion: hostWon ? 'win' : 'loss', // reuse field to signal winner
-      [`${myKey}_player`]: G.players[0],
+      host_potion: hostWon ? 'win' : 'loss',
+      host_player: hostPlayer,
+      guest_player: guestPlayer,
     });
     showResult(winnerId, loserId);
   });
@@ -2336,26 +2354,25 @@ async function continueAfterBattle(row) {
     G.world++;
     G.level = 1;
 
-    if (O.isHost) {
-      G.players[0].shopRoll = rollShop();
-      G.players[0].purchasedSlots = [];
-      G.players[0].pickedMonkeyThisWorld = false;
+    G.players[0].shopRoll = rollShop();
+    G.players[0].purchasedSlots = [];
+    G.players[0].pickedMonkeyThisWorld = false;
 
+    if (O.isHost) {
+      // Host is authoritative — writes the phase transition
       await sbUpsert('online_rooms', {
         room_code: O.roomCode,
         phase: 'worldtransition',
         game_meta: { world: G.world, level: G.level },
         host_ready: false,
         guest_ready: false,
-        [`${O.isHost ? 'host' : 'guest'}_player`]: G.players[0],
+        host_player: G.players[0],
       });
     } else {
-      G.players[0].shopRoll = rollShop();
-      G.players[0].purchasedSlots = [];
-      G.players[0].pickedMonkeyThisWorld = false;
+      // Guest just writes their own player state, waits for host to flip phase
       await sbUpsert('online_rooms', {
         room_code: O.roomCode,
-        [`guest_player`]: G.players[0],
+        guest_player: G.players[0],
       });
     }
     O.phase = 'worldtransition';
@@ -2366,14 +2383,23 @@ async function continueAfterBattle(row) {
     G.players[0].purchasedSlots = [];
 
     const myKey = O.isHost ? 'host' : 'guest';
-    await sbUpsert('online_rooms', {
-      room_code: O.roomCode,
-      phase: 'shop',
-      game_meta: { world: G.world, level: G.level },
-      host_ready: false,
-      guest_ready: false,
-      [`${myKey}_player`]: G.players[0],
-    });
+    if (O.isHost) {
+      // Host writes the phase transition
+      await sbUpsert('online_rooms', {
+        room_code: O.roomCode,
+        phase: 'shop',
+        game_meta: { world: G.world, level: G.level },
+        host_ready: false,
+        guest_ready: false,
+        host_player: G.players[0],
+      });
+    } else {
+      // Guest writes their state; host's phase:shop write will advance both
+      await sbUpsert('online_rooms', {
+        room_code: O.roomCode,
+        guest_player: G.players[0],
+      });
+    }
     enterShopPhase();
   }
 }
@@ -2455,7 +2481,8 @@ async function readyMonkeyPickup() {
   const row = await sbGet('online_rooms', O.roomCode);
   const bothReady = row && row[`${oppKey(myKey)}_ready`];
   if (bothReady) {
-    if (O.isHost) {
+    if (O.isHost && !O._worldTransitionAdvancing) {
+      O._worldTransitionAdvancing = true;
       await sbUpsert('online_rooms', {
         room_code: O.roomCode,
         phase: 'shop',

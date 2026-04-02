@@ -1008,6 +1008,41 @@ const WORLD_2_INGREDIENTS = {
   }
 };
 
+const MIX_POTIONS = {
+  'banana_peel+the_banana': {
+    name: 'Whole Banana Potion', icon: '🍌✨', ingredients: ['banana_peel', 'the_banana'],
+    effects: {
+      spell: (lv) => {
+        const ranges = [[5,15],[10,20],[15,25]];
+        const [min, max] = ranges[lv-1];
+        const value = min + Math.floor(Math.random() * (max - min + 1));
+        return { type: 'wholeBananaSpell', value, desc: `+${value} max HP (rolled ${min}-${max})` };
+      },
+      splash: (lv) => ({ type: 'wholeBananaSplash', chance: 40, turns: 2, desc: `40% chance to fully heal (re-rolls each turn, 2 turns)` }),
+      consume: (lv) => ({ type: 'wholeBananaConsume', mult: [1, 1.5, 2][lv-1], desc: `Heal ${[100,150,200][lv-1]}% of current ATK as HP` })
+    }
+  },
+  'bones+pumice_stone': {
+    name: 'Sand and Dust', icon: '🦴🪨', ingredients: ['bones', 'pumice_stone'],
+    effects: {
+      spell: (lv) => ({ type: 'sandDustSpell', turns: lv, desc: `Nullify incoming splashes for ${lv} turn${lv > 1 ? 's' : ''}` }),
+      splash: (lv) => ({ type: 'sandDustSplash', chance: [10,15,20][lv-1], desc: `${[10,15,20][lv-1]}% chance enemy misses each attack (permanent)` }),
+      consume: (lv) => ({ type: 'sandDustConsume', charges: lv, desc: `Absorb ${lv} free hit${lv > 1 ? 's' : ''}` })
+    }
+  }
+};
+
+function getMixKey(ingredients) {
+  const unique = [...new Set(ingredients)].sort();
+  if (unique.length === 2) return unique.join('+');
+  return null;
+}
+
+function getMixPotion(ingredients) {
+  const key = getMixKey(ingredients);
+  return key ? MIX_POTIONS[key] : null;
+}
+
 const BREWING_TOOLS = {
   plastic_spoon: { id: 'plastic_spoon', name: 'Plastic Spoon', icon: '🥄', cost: 8, desc: '25% discount on all shop ingredients' },
   soup_ladle: { id: 'soup_ladle', name: 'Soup Ladle', icon: '🫙', cost: 10, desc: 'All CPs also heal 3hp on use' },
@@ -2269,9 +2304,9 @@ function endBattle(myWiped, oppWiped) {
     addLog('system', `${O.myName}'s team defeated! ${O.oppName} wins!`);
   }
 
-  // Payout — both follow normal rules online
-  G.players[winnerId].bananas += 10;
-  G.players[loserId].bananas += 5;
+  // Payout — both players get 10🍌 in online regardless of win/loss
+  G.players[0].bananas += 10;
+  G.players[1].bananas += 10;
 
   broadcastBattleState().then(async () => {
     const hostWon = winnerId === 0; // winnerId 0 = host always (host resolves battle)
@@ -2298,10 +2333,9 @@ function showResult(winnerId, loserId) {
   G.players.forEach(p => p.monkeys.forEach(mon => { mon.hp = mon.maxHp; }));
 
   const iWon = winnerId === 0;
-  const earned = iWon ? 10 : 5;
   document.getElementById('result-icon').textContent = iWon ? '🎉' : '😔';
   document.getElementById('result-title').textContent = iWon ? 'You Win!' : 'You Lose!';
-  document.getElementById('result-sub').textContent = `+${earned}🍌 earned`;
+  document.getElementById('result-sub').textContent = `+10🍌 earned`;
 
   let detailsHtml = `You now have ${G.players[0].bananas}🍌<br>World ${G.world} Level ${G.level} complete!`;
   document.getElementById('result-details').innerHTML = detailsHtml;
@@ -2997,6 +3031,19 @@ function updateBrewPreview() {
   const filled = brewSlots.filter(Boolean);
   const preview = document.getElementById('brew-preview');
   if (filled.length === 0 || !selectedBrewType) { preview.style.display = 'none'; return; }
+
+  const mix = getMixPotion(filled);
+  if (mix) {
+    const counts = {};
+    filled.forEach(i => counts[i] = (counts[i] || 0) + 1);
+    const lv = Math.min(...Object.values(counts));
+    const eff = mix.effects[selectedBrewType](lv);
+    const name = `${mix.icon} ${mix.name} ${selectedBrewType === 'spell' ? 'Spell' : selectedBrewType === 'consume' ? 'Consumable' : 'Splash'} · Level ${lv}`;
+    preview.style.display = 'block';
+    preview.innerHTML = `<div class="brew-preview-title">${name} ✨ Mix!</div><div class="brew-preview-effects">${eff.desc}</div>`;
+    return;
+  }
+
   const ingId = filled[0];
   const ing = getIngredient(ingId);
   if (!ing || !ing.effects[selectedBrewType]) { preview.style.display = 'none'; return; }
@@ -3012,48 +3059,63 @@ function brewPotion() {
   const filled = brewSlots.filter(Boolean);
   if (filled.length === 0) { flashMessage('Add ingredients first!'); return; }
   if (!selectedBrewType) { flashMessage('Select a potion type!'); return; }
-  const ingId = filled[0];
-  if (new Set(filled).size > 1) { flashMessage('Mix potions: use same ingredient for now'); return; }
-  const ing = getIngredient(ingId);
-  if (!ing) return;
   if (selectedBrewType === 'consume' && p.inventory.consume_flask <= 0) { flashMessage('No consume flasks!'); return; }
   if (selectedBrewType === 'splash' && p.inventory.splash_flask <= 0) { flashMessage('No splash flasks!'); return; }
 
-  const lv = Math.min(filled.length, 3);
-  const hasStainless = !!(p.inventory.brewingTools?.stainless_pot);
-  const hasBucket = !!(p.inventory.brewingTools?.halloween_bucket);
-  let actualLv = lv;
-  if (hasStainless && lv === 1 && Math.random() < 0.15) actualLv = 2;
+  const mix = getMixPotion(filled);
+  let potion;
 
-  let eff = ing.effects[selectedBrewType](actualLv);
-  if (hasBucket) {
-    if (eff.value !== undefined) eff.value++;
-    if (eff.hp !== undefined) eff.hp++;
+  if (mix) {
+    // Mix potion
+    const counts = {};
+    filled.forEach(i => counts[i] = (counts[i] || 0) + 1);
+    const lv = Math.min(...Object.values(counts));
+    const eff = mix.effects[selectedBrewType](lv);
+    potion = {
+      id: `mix_${selectedBrewType}_${Date.now()}`,
+      ingredientId: filled.join('+'),
+      name: `${mix.name} ${selectedBrewType === 'spell' ? 'Spell' : selectedBrewType === 'consume' ? 'Consumable' : 'Splash'}`,
+      icon: mix.icon, type: selectedBrewType, level: lv, effect: eff, isMix: true
+    };
+    [...new Set(filled)].forEach(id => {
+      if (p.inventory.ingredients[id]) p.inventory.ingredients[id]--;
+      else if (p.inventory.ingredients_w2?.[id]) p.inventory.ingredients_w2[id]--;
+    });
+  } else {
+    // Standard single-ingredient
+    if (new Set(filled).size > 1) { flashMessage("Those ingredients don't make a mix!"); return; }
+    const ingId = filled[0];
+    const ing = getIngredient(ingId);
+    if (!ing) return;
+    const hasStainless = !!(p.inventory.brewingTools?.stainless_pot);
+    const hasBucket = !!(p.inventory.brewingTools?.halloween_bucket);
+    let actualLv = Math.min(filled.length, 3);
+    if (hasStainless && actualLv === 1 && Math.random() < 0.15) actualLv = 2;
+    let eff = ing.effects[selectedBrewType](actualLv);
+    if (hasBucket && eff.value !== undefined) {
+      eff = { ...eff, value: eff.value + 1, desc: eff.desc + ' (+1 from 🎃)' };
+    }
+    potion = {
+      id: `${ingId}_${selectedBrewType}_${Date.now()}`,
+      ingredientId: ingId,
+      name: `${ing.name} ${selectedBrewType === 'spell' ? 'Spell' : selectedBrewType === 'consume' ? 'Consumable' : 'Splash'}`,
+      icon: ing.icon, type: selectedBrewType, level: actualLv, effect: eff
+    };
+    filled.forEach(id => {
+      if (p.inventory.ingredients[id]) p.inventory.ingredients[id]--;
+      else if (p.inventory.ingredients_w2?.[id]) p.inventory.ingredients_w2[id]--;
+    });
   }
 
-  const potion = {
-    id: `${ingId}_${selectedBrewType}_${Date.now()}`,
-    ingredientId: ingId,
-    name: `${ing.name} ${selectedBrewType === 'spell' ? 'Spell' : selectedBrewType === 'consume' ? 'Consumable' : 'Splash'}`,
-    icon: ing.icon,
-    type: selectedBrewType,
-    level: actualLv,
-    effect: eff
-  };
-
   p.brewedPotions.push(potion);
-
-  // Deduct ingredients
-  filled.forEach(id => {
-    if (p.inventory.ingredients[id]) p.inventory.ingredients[id]--;
-    else if (p.inventory.ingredients_w2?.[id]) p.inventory.ingredients_w2[id]--;
-  });
   if (selectedBrewType === 'consume') p.inventory.consume_flask--;
   if (selectedBrewType === 'splash') p.inventory.splash_flask--;
 
   brewSlots = [null, null, null];
   selectedBrewType = null;
-  document.querySelectorAll('.brew-type-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.flask-btn').forEach(b => b.classList.remove('active'));
+  const brewBtn = document.getElementById('brew-btn');
+  if (brewBtn) brewBtn.disabled = true;
   document.getElementById('brew-preview').style.display = 'none';
   renderBrewSlots();
   renderIngredientList();

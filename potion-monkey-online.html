@@ -669,7 +669,7 @@
       <div class="card-title">🌋 Ingredients <span class="badge" style="background:var(--red)">world 2</span></div>
       <div class="shop-grid" id="ingredient-shop-w2"></div>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap" id="brewing-tool-cards" style="display:none">
+    <div style="display:none;gap:10px;flex-wrap:wrap" id="brewing-tool-cards">
       <div class="card" id="spoon-card" style="display:none;flex:1;min-width:180px">
         <div class="card-title">🧰 Tool <span class="badge">world 2+</span></div>
         <div class="shop-grid" id="spoon-shop"></div>
@@ -2419,7 +2419,7 @@ function levelUpMonkeys() {
 // MONKEY PICKUP
 // ============================================================
 function enterMonkeyPickup(row) {
-  const worldData = { 2: { template: WORLD_2_MONKEYS[0], statPool: 18, hpMin: 10, hpMax: 13 } };
+  const worldData = { 2: { template: WORLD_2_MONKEYS[0], statPool: 14, hpMin: 8, hpMax: 10 } };
   const wd = worldData[G.world] || worldData[2];
   const newMon = makeMonkey(wd.template, 0, wd.statPool, wd.hpMin, wd.hpMax);
   const me = G.players[0];
@@ -3097,84 +3097,82 @@ function discardPotion(idx) {
 // ============================================================
 function renderSpellbook() {
   const p = G.players[0];
-  const monDiv = document.getElementById('spellbook-monkeys');
-  const spellDiv = document.getElementById('spellbook-spells');
-  monDiv.innerHTML = '';
-  spellDiv.innerHTML = '';
+  const spells = p.brewedPotions.filter(pot => pot.type === 'spell');
+  const monkeysDiv = document.getElementById('spellbook-monkeys');
+  monkeysDiv.innerHTML = '';
 
   p.monkeys.forEach((mon, mIdx) => {
-    let slotsHtml = '';
-    for (let i = 0; i < 3; i++) {
-      const spell = mon.spells[i];
-      slotsHtml += spell
-        ? `<div class="spell-slot filled" draggable="true"
-              ondragstart="dragSpell(event,${mIdx},${i})"
-              ondragover="event.preventDefault()"
-              ondrop="dropSpell(event,${mIdx},${i})"
-              style="cursor:grab">
-              ☰ ${iconInline(spell.icon,14)} ${spell.name} Lv${spell.level}
-              <button onclick="removeSpell(${mIdx},${i})" style="float:right;background:none;border:none;color:var(--text3);cursor:pointer">✕</button>
-           </div>`
-        : `<div class="spell-slot"
-              ondragover="event.preventDefault()"
-              ondrop="dropSpell(event,${mIdx},${i})">slot ${i+1}</div>`;
-    }
-    monDiv.innerHTML += `
-      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
+    monkeysDiv.innerHTML += `
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <span style="font-size:24px">${mon.icon}</span>
-          <span>${mon.name}</span>
-          <span style="color:var(--text3);font-size:11px">Lv${mon.level} · ❤️${mon.hp}/${mon.maxHp} · ⚔️${mon.atk} · 🛡${mon.def} · 💨${mon.spd}</span>
+          <span style="font-family:Fredoka,sans-serif;font-size:16px">${mon.name}</span>
+          <span style="color:var(--text2);font-size:12px">Lv${mon.level} · ${mon.hp}/${mon.maxHp}hp · ${mon.atk}atk · ${mon.def}def · ${mon.spd}spd</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px">${slotsHtml}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap" id="monkey-spell-slots-${mIdx}">
+          ${[0,1,2].map(i => {
+            const spell = mon.spells[i];
+            if (spell) {
+              return `<div class="spell-slot" draggable="true"
+                ondragstart="dragSpell(event,${mIdx},${i})"
+                ondragover="event.preventDefault()"
+                ondrop="dropSpell(event,${mIdx},${i})"
+                title="Drag to reorder">
+                ☰ ${iconInline(spell.icon,14)} ${spell.name} Lv${spell.level}
+              </div>`;
+            }
+            return `<div class="spell-slot empty"
+              ondragover="event.preventDefault()"
+              ondrop="dropSpell(event,${mIdx},${i})">slot ${i+1}</div>`;
+          }).join('')}
+        </div>
+        ${mon.spells.length > 0 ? `<div style="font-size:11px;color:var(--text3);margin-top:6px">Spells are permanent — drag to reorder</div>` : ''}
       </div>`;
   });
 
-  const spells = p.brewedPotions.filter(s => s.type === 'spell' && !p.monkeys.some(m => m.spells.find(ms => ms.id === s.id)));
-  if (spells.length === 0) { spellDiv.innerHTML = '<p style="color:var(--text3);font-size:12px">No unassigned spells</p>'; return; }
-  spells.forEach(spell => {
-    spellDiv.innerHTML += `
-      <div class="potion-card spell-potion" draggable="true"
-        ondragstart="event.dataTransfer.setData('spellId','${spell.id}')"
-        onclick="clickAssignSpell('${spell.id}')">
-        <div class="potion-card-icon">${iconInline(spell.icon,28)}</div>
-        <div class="potion-card-name">${spell.name} Lv${spell.level}</div>
-        <div class="potion-card-effect">${spell.effect.desc}</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:4px">Click to assign →</div>
-      </div>`;
-  });
-}
+  const availDiv = document.getElementById('spellbook-spells');
+  availDiv.innerHTML = '';
+  const assignedIds = p.monkeys.flatMap(m => m.spells.map(s => s.id));
+  const unassigned = spells.filter(s => !assignedIds.includes(s.id));
 
-let dragSpellData = null;
-function dragSpell(event, monkeyIdx, slotIdx) {
-  dragSpellData = { monkeyIdx, slotIdx };
-  event.dataTransfer.effectAllowed = 'move';
-}
-
-function dropSpell(event, monkeyIdx, slotIdx) {
-  event.preventDefault();
-  const spellId = event.dataTransfer.getData('spellId');
-  if (spellId) { assignSpell(spellId, monkeyIdx); return; }
-  if (!dragSpellData) return;
-  const from = dragSpellData; dragSpellData = null;
-  if (from.monkeyIdx === monkeyIdx && from.slotIdx === slotIdx) return;
-  const p = G.players[0];
-  const fromMon = p.monkeys[from.monkeyIdx];
-  const toMon = p.monkeys[monkeyIdx];
-  const fromSpell = fromMon.spells[from.slotIdx];
-  if (!fromSpell) return;
-  if (from.monkeyIdx === monkeyIdx) {
-    fromMon.spells.splice(from.slotIdx, 1);
-    fromMon.spells.splice(slotIdx, 0, fromSpell);
+  if (unassigned.length === 0) {
+    availDiv.innerHTML = '<p style="color:var(--text3);font-size:12px">No unassigned spells</p>';
+    return;
   }
-  renderSpellbook();
+
+  unassigned.forEach(spell => {
+    availDiv.innerHTML += `
+      <div style="background:var(--spell-bg);border:1px solid var(--spell-border);border-radius:8px;padding:8px 10px;cursor:pointer" onclick="showSpellAssignMenu('${spell.id}')">
+        <div style="font-size:13px;font-weight:700;color:var(--spell)">${iconInline(spell.icon,16)} ${spell.name} Lv${spell.level}</div>
+        <div style="font-size:11px;color:var(--text2)">${spell.effect.desc}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Click to assign →</div>
+      </div>`;
+  });
 }
 
-function clickAssignSpell(spellId) {
+function showSpellAssignMenu(spellId) {
   const p = G.players[0];
-  const target = p.monkeys.find(m => m.spells.length < 3);
-  if (!target) { flashMessage('All monkeys have 3 spells!'); return; }
-  assignSpell(spellId, p.monkeys.indexOf(target));
+  const spell = p.brewedPotions.find(s => s.id === spellId);
+  if (!spell) return;
+
+  const options = p.monkeys.map((mon, idx) => {
+    const hasRoom = mon.spells.length < 3;
+    return `<button class="btn btn-secondary" ${!hasRoom ? 'disabled' : ''} onclick="assignSpell('${spellId}',${idx})" style="display:flex;align-items:center;gap:8px;width:100%">
+      <span>${mon.icon}</span> <span>${mon.name}</span> <span style="color:var(--text3);font-size:11px">(${mon.spells.length}/3 spells)</span>
+    </button>`;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:999';
+  overlay.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:320px;width:90%">
+      <div style="font-family:Fredoka,sans-serif;font-size:18px;margin-bottom:12px">Assign ${iconInline(spell.icon,18)} ${spell.name}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${options}</div>
+      <button class="btn btn-secondary btn-sm" onclick="this.closest('.overlay-el').remove()">Cancel</button>
+    </div>`;
+  overlay.classList.add('overlay-el');
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
 }
 
 function assignSpell(spellId, monkeyIdx) {
@@ -3184,30 +3182,48 @@ function assignSpell(spellId, monkeyIdx) {
   if (!spell || mon.spells.length >= 3) return;
   applySpellToMonkey(mon, spell);
   mon.spells.push(spell);
+  document.querySelectorAll('.overlay-el').forEach(el => el.remove());
   renderSpellbook();
 }
 
 function applySpellToMonkey(mon, spell) {
   const eff = spell.effect;
   if (eff.type === 'bananaPeelSpell') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
-  if (eff.type === 'spiderEyeSpell') mon.atk += eff.value;
-  if (eff.type === 'newtSpell') mon.def += eff.value;
-  if (eff.type === 'pumiceStoneSpell') mon.pumiceCharges = (mon.pumiceCharges || 0) + eff.charges;
+  if (eff.type === 'spiderEyeSpell') { mon.atk += eff.value; }
+  if (eff.type === 'newtSpell') { mon.def += eff.value; }
+  if (eff.type === 'pumiceStoneSpell') { mon.pumiceCharges = (mon.pumiceCharges || 0) + eff.charges; }
   if (eff.type === 'theBananaSpell') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
   if (eff.type === 'wholeBananaSpell') { mon.maxHp += eff.value; mon.hp = Math.min(mon.hp + eff.value, mon.maxHp); }
-  if (eff.type === 'sandDustSpell') mon.splashNullifyTurns = (mon.splashNullifyTurns || 0) + eff.turns;
+  if (eff.type === 'sandDustSpell') { mon.splashNullifyTurns = (mon.splashNullifyTurns || 0) + eff.turns; }
 }
 
-function removeSpell(monkeyIdx, slotIdx) {
+let dragSpellData = null;
+
+function dragSpell(event, monkeyIdx, slotIdx) {
+  dragSpellData = { monkeyIdx, slotIdx };
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function dropSpell(event, monkeyIdx, slotIdx) {
+  event.preventDefault();
+  if (!dragSpellData) return;
+  const from = dragSpellData;
+  dragSpellData = null;
+
+  // Only reorder within the same monkey
+  if (from.monkeyIdx !== monkeyIdx) return;
+  if (from.slotIdx === slotIdx) return;
+
   const p = G.players[0];
-  const mon = p.monkeys[monkeyIdx];
-  const spell = mon.spells[slotIdx];
-  if (!spell) return;
-  const eff = spell.effect;
-  if (eff.type === 'bananaPeelSpell') { mon.maxHp -= eff.value; mon.hp = Math.min(mon.hp, mon.maxHp); }
-  if (eff.type === 'spiderEyeSpell') mon.atk -= eff.value;
-  if (eff.type === 'newtSpell') mon.def -= eff.value;
-  mon.spells.splice(slotIdx, 1);
+  const spells = p.monkeys[monkeyIdx].spells;
+  const temp = spells[from.slotIdx];
+  spells[from.slotIdx] = spells[slotIdx] || null;
+  if (spells[slotIdx] === undefined || spells[slotIdx] === null) {
+    spells.splice(from.slotIdx, 1);
+  } else {
+    spells[slotIdx] = temp;
+  }
+  p.monkeys[monkeyIdx].spells = spells.filter(Boolean);
   renderSpellbook();
 }
 

@@ -577,7 +577,24 @@
   <div id="reconnect-countdown" style="display:none;color:var(--red);font-size:13px"></div>
 </div>
 
-<!-- SCREEN: LOBBY -->
+<!-- Quit confirmation modal -->
+<div id="quit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9998;align-items:center;justify-content:center">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:340px;width:90%;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">🚪</div>
+    <div style="font-family:Fredoka,sans-serif;font-size:20px;color:var(--accent2);margin-bottom:8px">End Game?</div>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:20px">This will end the game for both players and delete the room.</p>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn btn-secondary" onclick="document.getElementById('quit-modal').style.display='none'">Cancel</button>
+      <button class="btn" onclick="confirmQuit()" style="background:var(--red);color:white;border-color:var(--red)">End Game</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fixed quit button (only shown when in a room) -->
+<button id="quit-btn" onclick="document.getElementById('quit-modal').style.display='flex'"
+  style="display:none;position:fixed;bottom:12px;left:12px;z-index:9000;background:rgba(30,30,40,0.85);border:1px solid var(--border);color:var(--text3);font-size:10px;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:monospace">
+  🚪 Quit
+</button>
 <div id="screen-lobby" class="screen active">
   <div class="main" style="align-items:center;justify-content:center;flex:1;gap:20px">
     <div style="font-family:Fredoka,sans-serif;font-size:36px;color:var(--accent2)">🍵 Potion Monkey</div>
@@ -616,30 +633,43 @@
   </div>
 </div>
 
-<!-- SCREEN: SHOP -->
 <div id="screen-shop" class="screen">
-  <div class="topbar">
-    <div class="topbar-title" id="shop-title">🏪 Shop</div>
-    <div class="topbar-right">
-      <span id="shop-player-label" style="font-size:12px;color:var(--text2)"></span>
-      <span class="banana-count" id="shop-bananas">0🍌</span>
+  <div class="header">
+    <span class="header-title" id="shop-title">🏪 Shop</span>
+    <div class="header-info">
+      <div class="stat-pill"><span>Player:</span><strong id="shop-player-name">P1</strong></div>
+      <div class="stat-pill"><span>🍌</span><strong id="shop-bananas">10</strong></div>
+      <div class="stat-pill"><span id="shop-player-label" style="color:var(--accent2)"></span></div>
+      <div class="stat-pill"><span>Level:</span><strong id="shop-level-display">1-1</strong></div>
     </div>
   </div>
+  <div class="phase-bar">
+    <div class="phase-step active">Shop</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Brew</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Spellbook</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Battle</div>
+  </div>
   <div class="main">
-    <div id="shop-monkey-display" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px"></div>
+    <div class="card" id="shop-monkey-panel">
+      <div class="card-title">🐵 Your Monkey</div>
+      <div id="shop-monkey-display" style="display:flex;gap:16px;flex-wrap:wrap"></div>
+    </div>
     <div class="card">
-      <div class="card-title">🧪 Flasks</div>
+      <div class="card-title">🍌 Flasks <span class="badge">always available</span></div>
       <div class="shop-grid" id="flask-shop"></div>
     </div>
-    <div class="card" id="w1-ingredient-card">
-      <div class="card-title">🌿 World 1 Ingredients <span class="badge">3 slots</span></div>
+    <div class="card">
+      <div class="card-title">🌿 Ingredients <span class="badge">world 1</span></div>
       <div class="shop-grid" id="ingredient-shop"></div>
     </div>
     <div class="card" id="w2-ingredient-card" style="display:none">
-      <div class="card-title">🔥 World 2 Ingredients <span class="badge">3 slots</span></div>
+      <div class="card-title">🌋 Ingredients <span class="badge" style="background:var(--red)">world 2</span></div>
       <div class="shop-grid" id="ingredient-shop-w2"></div>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap" id="brewing-tool-cards">
+    <div style="display:flex;gap:10px;flex-wrap:wrap" id="brewing-tool-cards" style="display:none">
       <div class="card" id="spoon-card" style="display:none;flex:1;min-width:180px">
         <div class="card-title">🧰 Tool <span class="badge">world 2+</span></div>
         <div class="shop-grid" id="spoon-shop"></div>
@@ -649,83 +679,120 @@
         <div class="shop-grid" id="cauldron-shop"></div>
       </div>
     </div>
-    <div class="card">
-      <div id="cart-display"></div>
-      <button class="btn btn-primary" onclick="buyCart()" style="margin-right:8px">Buy Selected</button>
-      <button class="btn btn-secondary" onclick="clearCart()">Clear Cart</button>
-    </div>
-    <div style="text-align:right;margin-top:8px">
-      <button class="btn btn-success" id="shop-ready-btn" onclick="playerReadyShop()">Done Shopping ✓</button>
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+      <div style="color:var(--text2);font-size:13px;align-self:center">Cart: <strong id="cart-count" style="color:var(--accent2)">0</strong> items · <strong id="cart-total" style="color:var(--accent2)">0🍌</strong></div>
+      <div id="cart-display" style="display:none"></div>
+      <button class="btn btn-secondary" onclick="clearCart()">Clear</button>
+      <button class="btn btn-success" id="buy-btn" onclick="buyCart()">Buy All</button>
+      <button class="btn btn-primary" onclick="playerReadyShop()">Done Shopping →</button>
     </div>
   </div>
 </div>
 
-<!-- SCREEN: BREW -->
+<!-- ============================================================
+     SCREEN: BREW
+     ============================================================ -->
 <div id="screen-brew" class="screen">
-  <div class="topbar">
-    <div class="topbar-title">⚗️ Brew Potions</div>
-    <div class="topbar-right"><span class="banana-count" id="brew-bananas">0🍌</span></div>
-  </div>
-  <div class="main" style="flex-direction:row;flex-wrap:wrap;gap:12px;align-items:flex-start">
-    <div style="flex:1;min-width:220px">
-      <div class="card">
-        <div class="card-title">🎒 Inventory</div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:6px">INGREDIENTS</div>
-        <div id="ingredient-list"></div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin:10px 0 6px">FLASKS</div>
-        <div id="flask-list"></div>
-      </div>
-    </div>
-    <div style="flex:2;min-width:300px">
-      <div class="card">
-        <div class="card-title">🫕 Cauldron <span class="badge">drop ingredients (1–3). select flask type. brew.</span></div>
-        <div class="brew-slots" id="brew-slots"></div>
-        <div class="brew-type-buttons">
-          <button class="btn btn-secondary brew-type-btn" id="brew-consume-btn" onclick="selectBrewType('consume')">🧪 Consume Flask</button>
-          <button class="btn btn-secondary brew-type-btn" id="brew-splash-btn" onclick="selectBrewType('splash')">💦 Splash Flask</button>
-          <button class="btn brew-type-btn" id="brew-spell-btn" onclick="selectBrewType('spell')" style="background:var(--spell-bg);border:1px solid var(--spell-border);color:var(--spell)">✨ Spell (no flask)</button>
-        </div>
-        <div class="brew-preview" id="brew-preview" style="display:none">
-          <div class="brew-preview-title" id="brew-preview-title"></div>
-          <div class="brew-preview-desc" id="brew-preview-desc"></div>
-        </div>
-        <button class="btn btn-success" onclick="brewPotion()" style="margin-right:8px">Brew Potion</button>
-        <button class="btn btn-secondary" onclick="clearBrewSlots()">Clear</button>
-      </div>
-      <div class="card">
-        <div class="card-title">📦 Brewed Potions <span class="badge" id="brewed-count">0</span></div>
-        <div id="brewed-list"></div>
-      </div>
+  <div class="header">
+    <span class="header-title">⚗️ Brewing Stand</span>
+    <div class="header-info">
+      <div class="stat-pill"><span>Player:</span><strong id="brew-player-name">P1</strong></div>
+      <div class="stat-pill"><span>🍌</span><strong id="brew-bananas">10</strong></div>
     </div>
   </div>
-  <div style="text-align:right;padding:0 16px 16px">
-    <button class="btn btn-success" onclick="playerReadyBrew()">Done Brewing ✓</button>
+  <div class="phase-bar">
+    <div class="phase-step done">Shop</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step active">Brew</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Spellbook</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Battle</div>
+  </div>
+  <div class="main">
+    <div class="brew-section">
+      <div class="brew-left">
+        <div class="card">
+          <div class="card-title">🎒 Inventory</div>
+          <div class="section-label">Ingredients</div>
+          <div class="ingredient-list" id="brew-ingredients"></div>
+          <hr class="divider">
+          <div class="section-label">Flasks</div>
+          <div id="brew-flasks" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+        </div>
+      </div>
+      <div class="brew-right">
+        <div class="card">
+          <div class="card-title">🫧 Cauldron</div>
+          <div class="section-label">Drop ingredients (1–3). Select flask type. Brew.</div>
+          <div class="brew-slots" id="brew-slots"></div>
+          <div class="flask-selector" id="flask-selector">
+            <button class="flask-btn" id="flask-consume-btn" onclick="selectFlask('consume')">🧪 Consume Flask</button>
+            <button class="flask-btn" id="flask-splash-btn" onclick="selectFlask('splash')">💦 Splash Flask</button>
+            <button class="flask-btn" id="flask-spell-btn" onclick="selectFlask('spell')">✨ Spell (no flask)</button>
+          </div>
+          <div id="brew-preview" class="brew-preview" style="display:none"></div>
+          <div class="brew-actions">
+            <button class="btn btn-success" id="brew-btn" onclick="brewPotion()" disabled>Brew Potion</button>
+            <button class="btn btn-secondary btn-sm" onclick="clearCauldron()">Clear</button>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div class="card-title">🧳 Brewed Potions <span class="badge" id="brewed-count">0</span></div>
+          <div id="brewed-list" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="playerReadyBrew()">Done Brewing →</button>
+    </div>
   </div>
 </div>
 
-<!-- SCREEN: SPELLBOOK -->
+<!-- ============================================================
+     SCREEN: SPELLBOOK
+     ============================================================ -->
 <div id="screen-spellbook" class="screen">
-  <div class="topbar"><div class="topbar-title">📖 Spellbook</div></div>
+  <div class="header">
+    <span class="header-title">📖 Spellbook</span>
+    <div class="header-info">
+      <div class="stat-pill"><span>Player:</span><strong id="spell-player-name">P1</strong></div>
+    </div>
+  </div>
+  <div class="phase-bar">
+    <div class="phase-step done">Shop</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step done">Brew</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step active">Spellbook</div>
+    <div class="phase-arrow">›</div>
+    <div class="phase-step">Battle</div>
+  </div>
   <div class="main">
     <div class="card">
-      <p style="color:var(--text2);font-size:13px;margin-bottom:10px">Passive buffs assigned to monkeys. Always active. No flask needed. Up to 3 per monkey. Order matters — Spirit Water boosts the <em>next</em> spell in the list.</p>
-      <div id="spellbook-monkeys"></div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:12px">Assign spells to your monkeys. Up to 3 per monkey. Order matters — Spirit Water boosts the <em>next</em> spell in the list.</p>
+      <div id="spellbook-monkeys" style="display:flex;flex-direction:column;gap:14px"></div>
+      <div id="spellbook-spells" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px"></div>
     </div>
     <div class="card">
       <div class="card-title">✨ Available Spells</div>
-      <div id="spellbook-spells"></div>
+      <div id="available-spells" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     </div>
-    <div style="text-align:right;padding:0 0 8px">
-      <button class="btn btn-success" onclick="playerReadySpellbook()">Done ✓</button>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="playerReadySpellbook()">Set Loadout →</button>
     </div>
   </div>
 </div>
 
-<!-- SCREEN: LOADOUT -->
+<!-- ============================================================
+     SCREEN: LOADOUT
+     ============================================================ -->
 <div id="screen-loadout" class="screen">
-  <div class="topbar">
-    <div class="topbar-title">⚔️ Battle Loadout</div>
-    <div class="topbar-right"><span id="loadout-player-name" style="font-size:13px;color:var(--text2)"></span></div>
+  <div class="header">
+    <span class="header-title">🎒 Battle Loadout</span>
+    <div class="header-info">
+      <div class="stat-pill"><span>Player:</span><strong id="loadout-player-name">P1</strong></div>
+    </div>
   </div>
   <div class="main">
     <div class="card">
@@ -734,44 +801,49 @@
     </div>
     <div class="card">
       <div class="card-title">🧳 Battle Inventory <span class="badge">3×3 grid · drag to fill</span></div>
-      <div id="battle-inv-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px"></div>
-      <div class="card-title" style="margin-top:8px">Available Potions</div>
-      <div id="loadout-potions"></div>
+      <p style="color:var(--text2);font-size:12px;margin-bottom:10px">Click potions from your stash to add to inventory. Consumables and splashes are 2×1.</p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div>
+          <div class="section-label">Battle inventory (9 slots)</div>
+          <div id="battle-inv-grid" style="display:grid;grid-template-columns:repeat(3,52px);gap:4px"></div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div class="section-label">Available potions</div>
+          <div id="loadout-potions" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+      </div>
     </div>
-    <div style="text-align:right;padding:0 0 8px">
-      <button class="btn btn-success" onclick="playerReadyLoadout()">Ready for Battle ✓</button>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="playerReadyLoadout()">Ready for Battle →</button>
     </div>
   </div>
 </div>
 
-<!-- SCREEN: BATTLE -->
+<!-- ============================================================
+     SCREEN: BATTLE
+     ============================================================ -->
 <div id="screen-battle" class="screen">
-  <div class="topbar">
-    <div class="topbar-title">⚔️ Battle</div>
-    <div class="topbar-right">
-      <span id="battle-level-display" style="font-size:12px;color:var(--text2)"></span>
-      <span id="turn-counter" style="font-size:12px;color:var(--text3)">Turn 1</span>
+  <div class="header">
+    <span class="header-title">⚔️ Battle!</span>
+    <div class="header-info">
+      <div class="stat-pill"><span>Turn:</span><strong id="turn-counter">1</strong></div>
+      <div class="stat-pill"><span>Level:</span><strong id="battle-level-display">1-1</strong></div>
     </div>
   </div>
   <div class="main">
-    <div id="battle-team-roster" style="display:flex;justify-content:space-between;margin-bottom:8px"></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <div class="card" style="flex:1;min-width:200px">
-        <div class="card-title" id="battle-you-label">You</div>
-        <div class="battle-monkey" id="battle-you-display"></div>
-      </div>
-      <div class="card" style="flex:1;min-width:200px">
-        <div class="card-title" id="battle-opp-label">Opponent</div>
-        <div class="battle-monkey" id="battle-opp-display"></div>
-      </div>
+    <div id="battle-team-roster"></div>
+    <div class="battle-arena">
+      <div class="battle-monkey" id="battle-you-display"></div>
+      <div class="vs-divider">VS</div>
+      <div class="battle-monkey" id="battle-opp-display"></div>
     </div>
-    <div class="card">
-      <div class="card-title" id="potion-choice-title">Your turn</div>
-      <div id="potion-hand" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <div class="card" id="field-effects-card" style="display:none">
+      <div class="card-title" id="field-effects-title">🌀 Field Effects</div>
+      <div class="field-effects" id="field-effects-display"></div>
     </div>
-    <div class="card">
-      <div class="card-title" id="field-effects-title" style="display:none">🌀 Field Effects</div>
-      <div id="field-effects-display"></div>
+    <div class="card" id="potion-choice-card">
+      <div class="card-title" id="potion-choice-title">Your turn — play a potion or attack</div>
+      <div class="potion-hand" id="potion-hand"></div>
     </div>
     <div class="card">
       <div class="card-title">📜 Battle Log</div>
@@ -780,13 +852,15 @@
   </div>
 </div>
 
-<!-- SCREEN: RESULT -->
+<!-- ============================================================
+     SCREEN: RESULT
+     ============================================================ -->
 <div id="screen-result" class="screen">
   <div class="main" style="align-items:center;justify-content:center;flex:1">
     <div class="card result-box" style="max-width:400px;width:100%">
       <div class="result-icon" id="result-icon">🏆</div>
-      <div class="result-title" id="result-title">Result</div>
-      <div class="result-sub" id="result-sub"></div>
+      <div class="result-title" id="result-title">P1 Wins!</div>
+      <div class="result-sub" id="result-sub">+10🍌 earned</div>
       <div id="result-details" style="color:var(--text2);font-size:13px;margin-bottom:20px;line-height:1.7"></div>
       <button class="btn btn-primary" id="result-continue-btn" onclick="playerReadyResult()">Continue →</button>
       <div id="result-waiting" style="color:var(--text3);font-size:12px;margin-top:10px;display:none">⏳ Waiting for opponent...</div>
@@ -794,15 +868,18 @@
   </div>
 </div>
 
-<!-- SCREEN: MONKEY PICKUP -->
+<!-- ============================================================
+     SCREEN: MONKEY PICKUP
+     ============================================================ -->
 <div id="screen-monkey-pickup" class="screen">
-  <div class="topbar"><div class="topbar-title">🐵 New Monkey!</div></div>
+  <div class="header"><span class="header-title" id="pickup-header">🐵 New Monkey!</span></div>
   <div class="main" style="align-items:center;justify-content:center;flex:1">
-    <div class="card" style="max-width:400px;width:100%;text-align:center">
-      <div id="pickup-icon" style="font-size:48px;margin-bottom:4px">🐵</div>
-      <div id="pickup-name" style="font-family:Fredoka,sans-serif;font-size:22px;margin-bottom:4px"></div>
-      <div id="pickup-stats" style="font-size:13px;color:var(--text2);margin-bottom:16px"></div>
-      <div id="pickup-actions" style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%"></div>
+    <div class="card" style="max-width:500px;width:100%;text-align:center">
+      <div style="font-size:48px;margin-bottom:4px" id="pickup-icon">🐵</div>
+      <h2 style="font-family:Fredoka,sans-serif;font-size:28px;color:var(--accent2);margin-bottom:8px" id="pickup-name">Jungle Monkey</h2>
+      <p style="color:var(--text2);margin-bottom:4px" id="pickup-stats"></p>
+      <p style="color:var(--text2);margin-bottom:20px" id="pickup-desc">A nimble monkey from the treetops.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%" id="pickup-actions"></div>
     </div>
   </div>
 </div>
@@ -1120,6 +1197,7 @@ function makePlayer(name) {
 function showLobbyHome() {
   stopPolling();
   O.roomCode = null;
+  hideQuitButton();
   document.getElementById('lobby-home').style.display = 'block';
   document.getElementById('lobby-join').style.display = 'none';
   document.getElementById('lobby-hosting').style.display = 'none';
@@ -1279,6 +1357,27 @@ async function cancelRoom() {
   showLobbyHome();
 }
 
+async function confirmQuit() {
+  document.getElementById('quit-modal').style.display = 'none';
+  stopPolling();
+  // Signal to opponent that game is ending
+  if (O.roomCode) {
+    try {
+      await sbUpsert('online_rooms', { room_code: O.roomCode, phase: 'quit' });
+      await sbDeleteRoom(O.roomCode);
+    } catch(e) { /* room may already be gone */ }
+  }
+  showLobbyHome();
+}
+
+function showQuitButton() {
+  document.getElementById('quit-btn').style.display = 'block';
+}
+
+function hideQuitButton() {
+  document.getElementById('quit-btn').style.display = 'none';
+}
+
 // ============================================================
 // ROOM UPDATE HANDLER (guest and host both receive this)
 // ============================================================
@@ -1390,6 +1489,17 @@ async function onRoomUpdate(row) {
     return;
   }
 
+  if (phase === 'quit') {
+    // Opponent ended the game
+    stopPolling();
+    document.getElementById('quit-modal').style.display = 'none';
+    hideQuitButton();
+    if (O.roomCode) { try { await sbDeleteRoom(O.roomCode); } catch(e) {} }
+    flashMessage('Your opponent ended the game.');
+    showLobbyHome();
+    return;
+  }
+
   if (phase === 'worldtransition' && O.phase !== 'worldtransition') {
     O.phase = 'worldtransition';
     enterMonkeyPickup(row);
@@ -1441,6 +1551,7 @@ function enterShopPhase() {
   O.myReady = false;
   const me = G.players[0];
   if (!me.shopRoll) me.shopRoll = rollShop();
+  showQuitButton();
   renderShop();
   showScreen('screen-shop');
   hideWaiting();
@@ -2210,13 +2321,13 @@ async function continueAfterBattle(row) {
   // Use the level recorded at battle start — game_meta may have been updated by now
   const battleLevel = O.battleLevel ?? G.level;
 
-  // Clean up used potions
-  G.players[0].battlePotions.forEach(pot => {
-    if (pot.used) {
-      const idx = G.players[0].brewedPotions.findIndex(bp => bp.id === pot.id);
-      if (idx >= 0) G.players[0].brewedPotions.splice(idx, 1);
-    }
-  });
+  // Clean up used potions — reconcile against final battle state
+  // Battle potions are deep-copied so pot.used on originals may not be set
+  const myBattlePots = O.isHost ? G.battle?.myPotions : G.battle?.oppPotions;
+  if (myBattlePots) {
+    const usedIds = new Set(myBattlePots.filter(p => p.used).map(p => p.id));
+    G.players[0].brewedPotions = G.players[0].brewedPotions.filter(p => !usedIds.has(p.id));
+  }
   G.players[0].battlePotions = [];
 
   if (battleLevel >= 3) {
@@ -2438,8 +2549,6 @@ function renderBattleScreen() {
   const b = G.battle;
   document.getElementById('turn-counter').textContent = `Turn ${b.turn}`;
   document.getElementById('battle-level-display').textContent = `${G.world}-${G.level}`;
-  document.getElementById('battle-you-label').textContent = O.myName;
-  document.getElementById('battle-opp-label').textContent = O.oppName;
 
   // Host: myMon = their monkey. Guest: myMon is host's monkey, so swap for display
   const myDisplayMon  = O.isHost ? b.myMon  : b.oppMon;
@@ -2449,8 +2558,8 @@ function renderBattleScreen() {
   const myDisplayIdx  = O.isHost ? b.myMonIdx  : b.oppMonIdx;
   const oppDisplayIdx = O.isHost ? b.oppMonIdx : b.myMonIdx;
 
-  renderBattleMonkey('battle-you-display', myDisplayMon);
-  renderBattleMonkey('battle-opp-display', oppDisplayMon);
+  renderBattleMonkey('battle-you-display', myDisplayMon, O.myName);
+  renderBattleMonkey('battle-opp-display', oppDisplayMon, O.oppName);
   renderBattleLog();
   renderFieldEffects();
 
@@ -2467,12 +2576,13 @@ function renderBattleScreen() {
   }
 }
 
-function renderBattleMonkey(divId, mon) {
+function renderBattleMonkey(divId, mon, playerLabel = '') {
   const el = document.getElementById(divId);
   if (!el || !mon) return;
   const hpPct = Math.max(0, (mon.hp / mon.maxHp) * 100);
   const hpColor = hpPct > 50 ? 'var(--green)' : hpPct > 25 ? 'var(--yellow)' : 'var(--red)';
   el.innerHTML = `
+    ${playerLabel ? `<div style="font-size:11px;font-weight:700;color:var(--accent2);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">${playerLabel}</div>` : ''}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
       <span style="font-size:32px">${mon.icon}</span>
       <div>
@@ -2715,9 +2825,10 @@ function updateCartDisplay() {
   const p = G.players[0];
   const total = p.cart.reduce((s, c) => s + c.cost, 0);
   const affordable = total <= p.bananas;
-  document.getElementById('cart-display').innerHTML = p.cart.length === 0
-    ? `<p style="color:var(--text3);font-size:12px">Cart empty</p>`
-    : `<div style="font-size:13px;margin-bottom:8px">Cart: ${p.cart.map(c => c.id).join(', ')} — <strong style="color:${affordable ? 'var(--green)' : 'var(--red)'}">${total}🍌</strong></div>`;
+  const countEl = document.getElementById('cart-count');
+  const totalEl = document.getElementById('cart-total');
+  if (countEl) countEl.textContent = p.cart.length;
+  if (totalEl) { totalEl.textContent = `${total}🍌`; totalEl.style.color = affordable ? 'var(--green)' : 'var(--red)'; }
 }
 
 function buyCart() {
@@ -2767,7 +2878,7 @@ function renderBrew() {
 
 function renderIngredientList() {
   const p = G.players[0];
-  const il = document.getElementById('ingredient-list');
+  const il = document.getElementById('brew-ingredients');
   il.innerHTML = '';
   const allIngs = {
     ...Object.fromEntries(Object.entries(p.inventory.ingredients).filter(([,v]) => v > 0)),
@@ -2785,7 +2896,7 @@ function renderIngredientList() {
       </div>`;
   });
 
-  const fl = document.getElementById('flask-list');
+  const fl = document.getElementById('brew-flasks');
   fl.innerHTML = `<div style="font-size:12px;color:var(--text2)">🧪 Consume: ${p.inventory.consume_flask} &nbsp; 💦 Splash: ${p.inventory.splash_flask}</div>`;
 }
 
@@ -2803,6 +2914,7 @@ function addIngToBrew(ingId) {
 
 function renderBrewSlots() {
   const container = document.getElementById('brew-slots');
+  const brewBtn = document.getElementById('brew-btn');
   container.innerHTML = '';
   brewSlots.forEach((ingId, i) => {
     const ing = ingId ? getIngredient(ingId) : null;
@@ -2814,6 +2926,8 @@ function renderBrewSlots() {
         ${ing ? `<span class="brew-slot-icon">${ing.icon}</span><span class="brew-slot-name">${ing.name}</span>` : `<span style="font-size:11px;color:var(--text3)">drop here</span>`}
       </div>`;
   });
+  const filled = brewSlots.filter(Boolean);
+  if (brewBtn) brewBtn.disabled = filled.length === 0 || !selectedBrewType;
 }
 
 function removeIngFromBrew(slotIdx) {
@@ -2838,25 +2952,26 @@ function dropIngToBrew(event, slotIdx) {
 
 function selectBrewType(type) {
   selectedBrewType = type;
-  document.querySelectorAll('.brew-type-btn').forEach(b => b.classList.remove('active'));
-  const map = { consume: 'brew-consume-btn', splash: 'brew-splash-btn', spell: 'brew-spell-btn' };
+  document.querySelectorAll('.flask-btn').forEach(b => b.classList.remove('active'));
+  const map = { consume: 'flask-consume-btn', splash: 'flask-splash-btn', spell: 'flask-spell-btn' };
   document.getElementById(map[type])?.classList.add('active');
+  const brewBtn = document.getElementById('brew-btn');
+  if (brewBtn) brewBtn.disabled = brewSlots.filter(Boolean).length === 0;
   updateBrewPreview();
 }
 
 function updateBrewPreview() {
   const filled = brewSlots.filter(Boolean);
-  if (filled.length === 0 || !selectedBrewType) { document.getElementById('brew-preview').style.display = 'none'; return; }
+  const preview = document.getElementById('brew-preview');
+  if (filled.length === 0 || !selectedBrewType) { preview.style.display = 'none'; return; }
   const ingId = filled[0];
   const ing = getIngredient(ingId);
-  if (!ing || !ing.effects[selectedBrewType]) { document.getElementById('brew-preview').style.display = 'none'; return; }
+  if (!ing || !ing.effects[selectedBrewType]) { preview.style.display = 'none'; return; }
   const lv = Math.min(filled.length, 3);
   const eff = ing.effects[selectedBrewType](lv);
-  const icon = ing.icon;
   const name = `${iconInline(ing.icon,16)} ${ing.name} ${selectedBrewType === 'spell' ? 'Spell' : selectedBrewType === 'consume' ? 'Consumable' : 'Splash'} · Level ${lv}`;
-  document.getElementById('brew-preview').style.display = 'block';
-  document.getElementById('brew-preview-title').innerHTML = name;
-  document.getElementById('brew-preview-desc').textContent = eff.desc;
+  preview.style.display = 'block';
+  preview.innerHTML = `<div class="brew-preview-title">${name}</div><div class="brew-preview-effects">${eff.desc}</div>`;
 }
 
 function brewPotion() {
@@ -2915,7 +3030,9 @@ function brewPotion() {
 function clearBrewSlots() {
   brewSlots = [null, null, null];
   selectedBrewType = null;
-  document.querySelectorAll('.brew-type-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.flask-btn').forEach(b => b.classList.remove('active'));
+  const brewBtn = document.getElementById('brew-btn');
+  if (brewBtn) brewBtn.disabled = true;
   document.getElementById('brew-preview').style.display = 'none';
   renderBrewSlots();
 }
@@ -3137,7 +3254,7 @@ function renderBattleGrid() {
   for (let i = 0; i < 9; i++) {
     const pot = p.battlePotions[i];
     grid.innerHTML += pot
-      ? `<div class="inv-cell filled" draggable="true"
+      ? `<div class="inv-cell occupied" draggable="true"
               ondragstart="dragGridPot(event,'${pot.id}')"
               ondragover="event.preventDefault()"
               ondrop="dropGridPot(event,${i})"
@@ -3268,6 +3385,10 @@ function flashMessage(msg) {
 // ============================================================
 // INIT
 // ============================================================
+
+// Aliases for singleplayer-sourced HTML button names
+const selectFlask = selectBrewType;
+const clearCauldron = clearBrewSlots;
 showLobbyHome();
 </script>
 </body>

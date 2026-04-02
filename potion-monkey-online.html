@@ -440,6 +440,10 @@
   .result-icon { font-size: 64px; margin-bottom: 16px; }
   .result-title { font-family: 'Fredoka', sans-serif; font-size: 36px; margin-bottom: 8px; }
   .result-sub { color: var(--text2); font-size: 16px; margin-bottom: 24px; }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 
   /* FIELD EFFECTS */
   .field-effects { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -855,16 +859,15 @@
 <!-- ============================================================
      SCREEN: RESULT
      ============================================================ -->
-<div id="screen-result" class="screen">
-  <div class="main" style="align-items:center;justify-content:center;flex:1">
-    <div class="card result-box" style="max-width:400px;width:100%">
-      <div class="result-icon" id="result-icon">🏆</div>
-      <div class="result-title" id="result-title">P1 Wins!</div>
-      <div class="result-sub" id="result-sub">+10🍌 earned</div>
-      <div id="result-details" style="color:var(--text2);font-size:13px;margin-bottom:20px;line-height:1.7"></div>
-      <button class="btn btn-primary" id="result-continue-btn" onclick="playerReadyResult()">Continue →</button>
-      <div id="result-waiting" style="color:var(--text3);font-size:12px;margin-top:10px;display:none">⏳ Waiting for opponent...</div>
-    </div>
+<!-- Result modal overlay (shown on top of battle screen) -->
+<div id="screen-result" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:4000;align-items:center;justify-content:center">
+  <div class="card result-box" style="max-width:380px;width:90%;text-align:center;animation:fadeInUp 0.3s ease">
+    <div class="result-icon" id="result-icon">🏆</div>
+    <div class="result-title" id="result-title">Result</div>
+    <div class="result-sub" id="result-sub"></div>
+    <div id="result-details" style="color:var(--text2);font-size:13px;margin-bottom:20px;line-height:1.7"></div>
+    <button class="btn btn-primary" id="result-continue-btn" onclick="playerReadyResult()" style="width:100%">Continue →</button>
+    <div id="result-waiting" style="color:var(--text3);font-size:12px;margin-top:10px;display:none">⏳ Waiting for opponent...</div>
   </div>
 </div>
 
@@ -900,7 +903,7 @@ const INGREDIENTS = {
     id: 'banana_peel', name: 'Banana Peel', icon: '<img src="icons/ingredients/BananaPeel.gif" style="width:36px;height:36px;object-fit:contain;image-rendering:pixelated" alt="Banana Peel">', cost: 2,
     desc: 'Spell: +1/2/3 max HP · Splash: Heal 1/2/3hp/turn for 2 turns · Consume: Heal 3/4/5hp',
     effects: {
-      spell: (lv) => ({ type: 'bananaPeelSpell', value: lv, desc: `+${lv} max HP` }),
+      spell: (lv) => ({ type: 'bananaPeelSpell', value: [5,8,12][lv-1], desc: `+${[5,8,12][lv-1]} max HP` }),
       splash: (lv) => ({ type: 'bananaPeelSplash', value: lv, turns: 2, desc: `Heal ${lv}hp/turn for 2 turns` }),
       consume: (lv) => ({ type: 'bananaPeelConsume', value: [3,4,5][lv-1], desc: `Heal ${[3,4,5][lv-1]}hp up to max` })
     }
@@ -950,7 +953,7 @@ const FLASKS = {
 
 const WORLD_2_INGREDIENTS = {
   the_banana: {
-    id: 'the_banana', name: 'The Banana', icon: '🍌🍌', cost: 5, world: 2,
+    id: 'the_banana', name: 'The Banana', icon: '🍌🍌', cost: 4, world: 2,
     desc: 'Spell: +5/8/12 max HP · Splash: 50% chance heal 5/7/10hp · Consume: Halve ATK, recover 100/200/300% of lost ATK as HP',
     effects: {
       spell: (lv) => {
@@ -964,7 +967,7 @@ const WORLD_2_INGREDIENTS = {
     }
   },
   fire_fig: {
-    id: 'fire_fig', name: 'Fire Fig', icon: '🔥', cost: 5, world: 2,
+    id: 'fire_fig', name: 'Fire Fig', icon: '🔥', cost: 4, world: 2,
     desc: 'Spell: 10/20/30% burn chance per attack · Splash: 33% chance to burn 1/2/3 turns · Consume: +1/2/3 dmg, 85% burn chance',
     effects: {
       spell: (lv) => ({ type: 'fireFigSpell', chance: [10,20,30][lv-1], desc: `${[10,20,30][lv-1]}% chance to burn on each attack` }),
@@ -973,7 +976,7 @@ const WORLD_2_INGREDIENTS = {
     }
   },
   pumice_stone: {
-    id: 'pumice_stone', name: 'Pumice Stone', icon: '🪨', cost: 5, world: 2,
+    id: 'pumice_stone', name: 'Pumice Stone', icon: '🪨', cost: 4, world: 2,
     desc: 'Spell: Survive 1/2/3 death blows (ATK halved on trigger) · Splash: Clear 1/2/all field effects · Consume: Clear 1/2/all status effects',
     effects: {
       spell: (lv) => ({ type: 'pumiceStoneSpell', charges: lv, desc: `Survive ${lv} death blow${lv > 1 ? 's' : ''} (ATK halved on trigger)` }),
@@ -982,7 +985,7 @@ const WORLD_2_INGREDIENTS = {
     }
   },
   coconut_juice: {
-    id: 'coconut_juice', name: 'Coconut Juice', icon: '🥥', cost: 9, world: 2,
+    id: 'coconut_juice', name: 'Coconut Juice', icon: '🥥', cost: 7, world: 2,
     desc: 'Spell: +1/2/3🍌 per spell ATK point at battle start · Splash: +1/2/3🍌 each time you attack (permanent) · Consume: Convert ATK to 🍌, ATK set to 1',
     effects: {
       spell: (lv) => ({ type: 'coconutJuiceSpell', mult: lv, desc: `+${lv}🍌 per spell ATK point at battle start` }),
@@ -995,7 +998,7 @@ const WORLD_2_INGREDIENTS = {
     }
   },
   bamboo: {
-    id: 'bamboo', name: 'Bamboo', icon: '🎋', cost: 10, world: 2,
+    id: 'bamboo', name: 'Bamboo', icon: '🎋', cost: 8, world: 2,
     desc: 'Spell: Copy spell above at Lv1/2/3 · Splash: Negate 50/75/100% of enemy active SP · Consume: +1/2/3 permanent base ATK',
     effects: {
       spell: (lv) => ({ type: 'bambooSpell', copyLevel: lv, desc: `Copy spell above at Lv${lv}` }),
@@ -2309,7 +2312,9 @@ function showResult(winnerId, loserId) {
   btn.onclick = playerReadyResult;
   btn.textContent = G.level >= 3 ? `World ${G.world} Complete! 🌟 →` : `Continue →`;
 
-  showScreen('screen-result');
+  showScreen('screen-battle'); // stay on battle screen
+  const modal = document.getElementById('screen-result');
+  modal.style.display = 'flex'; // show modal on top
 }
 
 async function playerReadyResult() {
@@ -2333,6 +2338,9 @@ async function playerReadyResult() {
 async function continueAfterBattle(row) {
   if (O.phase !== 'result') return; // guard against double-call
   O.phase = 'continuing'; // prevent re-entry
+
+  // Hide the result modal
+  document.getElementById('screen-result').style.display = 'none';
 
   // Use the level recorded at battle start — game_meta may have been updated by now
   const battleLevel = O.battleLevel ?? G.level;

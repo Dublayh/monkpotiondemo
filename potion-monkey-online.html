@@ -1482,7 +1482,6 @@ async function onRoomUpdate(row) {
     }
   }
 
-  // Catch-up: if DB already advanced to shop while we were on result
   // Catch-up: host already advanced to shop while we were processing result
   if (phase === 'shop' && O.phase === 'result' && O.myReady) {
     continueAfterBattle(row);
@@ -1522,7 +1521,6 @@ async function onRoomUpdate(row) {
   }
 
   if (phase === 'shop' && O.phase === 'worldtransition') {
-    O.phase = 'shop';
     enterShopPhase();
   }
 }
